@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: karama-backend
+    runtime: node
+    region: oregon  # or frankfurt
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://karama:pfe9112000@cluster0.tqczpsm.mongodb.net/db_kara?retryWrites=true&w=majority&appName=Cluster0
+      - key: JWT_SECRET
+        value: your_jwt_secret
+      - key: PORT
+        value: 5000
+      - key: EMAIL_USER
+        value: karamamighry@gmail.com
+      - key: EMAIL_PASS
+        value: zrjo mptl idhw ndvm

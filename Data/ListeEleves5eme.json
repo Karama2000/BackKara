@@ -1,0 +1,212 @@
+[
+    {
+        "nom": "Ouinissi",
+        "prenom": "Youssef",
+        "email": "youssef.ouinissi@gmail.com",
+        "password": "016375011247",
+        "role": "eleve",
+        "numInscript": "016375011247",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Daouthi",
+        "prenom": "Yakine",
+        "email": "yakine.daouthi@gmail.com",
+        "password": "016073023369",
+        "role": "eleve",
+        "numInscript": "016073023369",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Jemli",
+        "prenom": "Hideya",
+        "email": "hideya.jemli@gmail.com",
+        "password": "016086024096",
+        "role": "eleve",
+        "numInscript": "016086024096",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Hsini",
+        "prenom": "Mouadh",
+        "email": "mouadh.hsini@gmail.com",
+        "password": "016304013008",
+        "role": "eleve",
+        "numInscript": "016304013008",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Azouzi",
+        "prenom": "Mariem",
+        "email": "mariem.azouzi@gmail.com",
+        "password": "015963047294",
+        "role": "eleve",
+        "numInscript": "015963047294",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Chtila",
+        "prenom": "Med Rayen",
+        "email": "med.rayen.chtila@gmail.com",
+        "password": "016184013496",
+        "role": "eleve",
+        "numInscript": "016184013496",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Charfeddine",
+        "prenom": "Med Amine",
+        "email": "med.amine.charfeddine@gmail.com",
+        "password": "016288030034",
+        "role": "eleve",
+        "numInscript": "016288030034",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Werghemi",
+        "prenom": "Lina",
+        "email": "lina.werghemi@gmail.com",
+        "password": "016250055948",
+        "role": "eleve",
+        "numInscript": "016250055948",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Faidi",
+        "prenom": "Abderrahim",
+        "email": "abderrahim.faidi@gmail.com",
+        "password": "015678020272",
+        "role": "eleve",
+        "numInscript": "015678020272",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Timoumi",
+        "prenom": "Soulaima",
+        "email": "soulaima.timoumi@gmail.com",
+        "password": "016144020194",
+        "role": "eleve",
+        "numInscript": "016144020194",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Timoumi",
+        "prenom": "Zaineb",
+        "email": "zaineb.timoumi@gmail.com",
+        "password": "015735057282",
+        "role": "eleve",
+        "numInscript": "015735057282",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Abdelnabu",
+        "prenom": "Ritej",
+        "email": "ritej.abdelnabu@gmail.com",
+        "password": "016029046805",
+        "role": "eleve",
+        "numInscript": "016029046805",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Jemli",
+        "prenom": "Rami",
+        "email": "rami.jemli@gmail.com",
+        "password": "014728035719",
+        "role": "eleve",
+        "numInscript": "014728035719",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Faidi",
+        "prenom": "Hamed",
+        "email": "hamed.faidi@gmail.com",
+        "password": "016419011962",
+        "role": "eleve",
+        "numInscript": "016419011962",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Kadechi",
+        "prenom": "Bourak",
+        "email": "bourak.kadechi@gmail.com",
+        "password": "016262012614",
+        "role": "eleve",
+        "numInscript": "016262012614",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Azouzi",
+        "prenom": "Ikram",
+        "email": "ikram.azouzi@gmail.com",
+        "password": "016217016132",
+        "role": "eleve",
+        "numInscript": "016217016132",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Belghouthi",
+        "prenom": "Ayoub",
+        "email": "ayoub.belghouthi@gmail.com",
+        "password": "015674000533",
+        "role": "eleve",
+        "numInscript": "015674000533",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Bennour",
+        "prenom": "Asma",
+        "email": "asma.bennour@gmail.com",
+        "password": "015572018672",
+        "role": "eleve",
+        "numInscript": "015572018672",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Abdelnabi",
+        "prenom": "Arij",
+        "email": "arij.abdelnabi@gmail.com",
+        "password": "015508020500",
+        "role": "eleve",
+        "numInscript": "015508020500",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Nasri",
+        "prenom": "Ahlem",
+        "email": "ahlem.nasri@gmail.com",
+        "password": "016128019844",
+        "role": "eleve",
+        "numInscript": "016128019844",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    },
+    {
+        "nom": "Belghouthi",
+        "prenom": "Abrar",
+        "email": "abrar.belghouthi@gmail.com",
+        "password": "016052052272",
+        "role": "eleve",
+        "numInscript": "016052052272",
+        "niveau": "680ea87e1a5a02dfa4020c5e",
+        "classe": "68128d17d4964ca9b7671152"
+    }
+]

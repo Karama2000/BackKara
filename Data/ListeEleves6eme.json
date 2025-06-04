@@ -1,0 +1,132 @@
+[
+    {
+        "nom": "Azouzi",
+        "prenom": "Youssef",
+        "email": "youssef.azouzi@gmail.com",
+        "password": "014529036579",
+        "role": "eleve",
+        "numInscript": "014529036579",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Azouzi",
+        "prenom": "Wassim",
+        "email": "wassim.azouzi@gmail.com",
+        "password": "015793049643",
+        "role": "eleve",
+        "numInscript": "015793049643",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Timoumi",
+        "prenom": "Mariem",
+        "email": "mariem.timoumi@gmail.com",
+        "password": "015210023867",
+        "role": "eleve",
+        "numInscript": "015210023867",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Selmi",
+        "prenom": "Med Ibrahim",
+        "email": "med.ibrahim.selmi@gmail.com",
+        "password": "015996062155",
+        "role": "eleve",
+        "numInscript": "015996062155",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Rayechi",
+        "prenom": "Med Amine",
+        "email": "med.amine.rayechi@gmail.com",
+        "password": "015888071474",
+        "role": "eleve",
+        "numInscript": "015888071474",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Jemli",
+        "prenom": "Louay",
+        "email": "louay.jemli@gmail.com",
+        "password": "016016048502",
+        "role": "eleve",
+        "numInscript": "016016048502",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Selmi",
+        "prenom": "Abderrahmen",
+        "email": "abderrahmen.selmi@gmail.com",
+        "password": "015736035265",
+        "role": "eleve",
+        "numInscript": "015736035265",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Timoumi",
+        "prenom": "Chahd",
+        "email": "chahd.timoumi@gmail.com",
+        "password": "015974058717",
+        "role": "eleve",
+        "numInscript": "015974058717",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Rayechi",
+        "prenom": "Seif Eleslem",
+        "email": "seifeleslem.rayechi@gmail.com",
+        "password": "015288044506",
+        "role": "eleve",
+        "numInscript": "015288044506",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Nasri",
+        "prenom": "Rimes",
+        "email": "rimes.nasri@gmail.com",
+        "password": "015600025202",
+        "role": "eleve",
+        "numInscript": "015600025202",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Timoumi",
+        "prenom": "Rim",
+        "email": "rim.timoumi@gmail.com",
+        "password": "015984041330",
+        "role": "eleve",
+        "numInscript": "015984041330",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Afli",
+        "prenom": "Amenallah",
+        "email": "amenallah.afli@gmail.com",
+        "password": "015887076894",
+        "role": "eleve",
+        "numInscript": "015887076894",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    },
+    {
+        "nom": "Ouinissi",
+        "prenom": "Ahmed",
+        "email": "ahmed.ouinissi@gmail.com",
+        "password": "015938067774",
+        "role": "eleve",
+        "numInscript": "015938067774",
+        "niveau": "680ea8821a5a02dfa4020c60",
+        "classe": "68128d1fd4964ca9b767115a"
+    }
+]
