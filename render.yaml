@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: karama-backend
+    name: kara-back
     runtime: node
     region: oregon  # or frankfurt
     plan: free
