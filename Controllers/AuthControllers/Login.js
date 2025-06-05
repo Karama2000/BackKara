@@ -1,3 +1,4 @@
+// Controllers/AuthControllers/Login.js
 const jwt = require('jsonwebtoken');
 const User = require('../../Models/AdminModels/User');
 
@@ -8,11 +9,19 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Utilisateur non trouvé' });
 
-    if (user.status === 'pending') {
-      return res.status(403).json({ message: 'Votre inscription est en attente de validation par un administrateur' });
+    // Vérifier si le compte est confirmé
+    if (!user.isConfirmed && user.role !== 'admin') {
+      return res.status(403).json({ message: 'Veuillez confirmer votre email avant de vous connecter.' });
     }
-    if (user.status === 'rejected') {
-      return res.status(403).json({ message: 'Votre inscription a été rejetée' });
+
+    // Vérifier le statut pour les nouveaux utilisateurs
+    if (user.status) { // Si le champ status existe (nouveaux utilisateurs)
+      if (user.status === 'pending') {
+        return res.status(403).json({ message: 'Votre inscription est en attente de validation par un administrateur' });
+      }
+      if (user.status === 'rejected') {
+        return res.status(403).json({ message: 'Votre inscription a été rejetée' });
+      }
     }
 
     const isMatch = await user.comparePassword(password);

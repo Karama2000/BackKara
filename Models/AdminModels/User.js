@@ -1,3 +1,4 @@
+// Models/AdminModels/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
@@ -17,8 +18,11 @@ const userSchema = new mongoose.Schema({
       return this.role === 'admin' ? 'approved' : 'pending';
     }
   },
-  resetPasswordToken: { type: String }, // Add reset token field
-  resetPasswordExpires: { type: Date }, // Add reset token expiration field
+  isConfirmed: { type: Boolean, default: false }, // Ajout du champ isConfirmed
+  confirmationToken: { type: String },
+  confirmationTokenExpires: { type: Date },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
 }, { timestamps: true, discriminatorKey: '__t' });
 
 // Hash password before saving
