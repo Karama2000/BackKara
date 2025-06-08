@@ -1,94 +1,176 @@
 const Message = require('../../Models/SystemeMessage/Message');
-const path = require('path');
-const mongoose = require('mongoose');
 const User = require('../../Models/AdminModels/User');
+const path = require('path');
+const fs = require('fs');
 
+// Helper function to generate conversation ID
 const generateConversationId = (userId1, userId2) => {
-  const sortedIds = [userId1, userId2].sort();
-  return `${sortedIds[0]}_${sortedIds[1]}`;
+  return [userId1, userId2].sort().join('_');
 };
 
+// Send a message (text or file)
 exports.sendMessage = async (req, res) => {
   try {
     const { recipientId, content } = req.body;
+    const senderId = req.user._id; // Assumes user is authenticated and user ID is in req.user
 
-    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
-      return res.status(400).json({ message: 'ID de destinataire invalide.' });
+    if (!recipientId) {
+      return res.status(400).json({ error: 'Recipient ID is required' });
     }
 
-    if (!content && !req.files) {
-      return res.status(400).json({ message: 'Le contenu ou un fichier est requis.' });
+    // Validate recipient exists
+    const recipient = await User.findById(recipientId);
+    if (!recipient) {
+      return res.status(404).json({ error: 'Recipient not found' });
     }
 
-    const conversationId = generateConversationId(req.user.id, recipientId);
-    const messages = [];
+    const conversationId = generateConversationId(senderId, recipientId);
+    const messageData = {
+      sender: senderId,
+      recipient: recipientId,
+      conversationId,
+      content: content || '',
+      fileType: 'text',
+    };
 
-    // Handle text message
-    if (content) {
-      const textMessage = new Message({
-        sender: req.user.id,
-        recipient: recipientId,
-        conversationId,
-        content,
-        fileType: 'text',
-      });
-      await textMessage.save();
-      await textMessage.populate('sender', 'prenom nom role imageUrl');
-      await textMessage.populate('recipient', 'prenom nom role imageUrl');
-      messages.push(textMessage);
-    }
+    // Handle file upload (image, audio, or document)
+    if (req.file) {
+      const allowedTypes = {
+        image: ['image/jpeg', 'image/jpg', 'image/png'],
+        audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm'],
+        file: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+      };
 
-    // Handle uploaded files
-    if (req.files) {
-      const validImageExt = ['.jpeg', '.jpg', '.png'];
-      const validAudioExt = ['.mp3', '.wav', '.ogg', '.webm'];
-      const validFileExt = ['.pdf', '.doc', '.docx'];
-
-      for (const field of ['image', 'audio', 'file']) {
-        if (req.files[field]) {
-          const file = req.files[field][0];
-          const fileUrl = `${req.protocol}://${req.get('host')}/Uploads/${file.filename}`;
-          const ext = path.extname(file.filename).toLowerCase();
-          let fileType;
-
-          if (validImageExt.includes(ext)) {
-            fileType = 'image';
-          } else if (validAudioExt.includes(ext)) {
-            fileType = 'audio';
-          } else if (validFileExt.includes(ext)) {
-            fileType = 'file';
-          } else {
-            return res.status(400).json({ message: 'Type de fichier non supporté.' });
-          }
-
-          const fileMessage = new Message({
-            sender: req.user.id,
-            recipient: recipientId,
-            conversationId,
-            fileUrl,
-            fileType,
-          });
-          await fileMessage.save();
-          await fileMessage.populate('sender', 'prenom nom role imageUrl');
-          await fileMessage.populate('recipient', 'prenom nom role imageUrl');
-          messages.push(fileMessage);
-        }
+      if (allowedTypes.image.includes(req.file.mimetype)) {
+        messageData.fileType = 'image';
+      } else if (allowedTypes.audio.includes(req.file.mimetype)) {
+        messageData.fileType = 'audio';
+      } else if (allowedTypes.file.includes(req.file.mimetype)) {
+        messageData.fileType = 'file';
+      } else {
+        // Delete the uploaded file if type is not allowed
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Unsupported file type' });
       }
+
+      // Ensure file size is within limit (10MB)
+      if (req.file.size > 10 * 1024 * 1024) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'File size exceeds 10MB limit' });
+      }
+
+      messageData.fileUrl = `/Uploads/${req.file.filename}`;
     }
 
-    res.status(201).json(messages);
+    const message = new Message(messageData);
+    await message.save();
+
+    // Populate sender and recipient details
+    const populatedMessage = await Message.findById(message._id)
+      .populate('sender', 'prenom nom role imageUrl')
+      .populate('recipient', 'prenom nom role imageUrl');
+
+    res.status(201).json(populatedMessage);
   } catch (error) {
-    console.error('Erreur lors de l\'envoi du message:', error);
-    res.status(500).json({ message: 'Erreur lors de l\'envoi du message.', error: error.message });
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Server error while sending message' });
   }
 };
 
-exports.getUnreadMessageSenders = async (req, res) => {
+// Get conversation between two users
+exports.getConversation = async (req, res) => {
   try {
-    const messages = await Message.aggregate([
+    const { recipientId } = req.params;
+    const senderId = req.user._id;
+
+    const conversationId = generateConversationId(senderId, recipientId);
+    const messages = await Message.find({ conversationId })
+      .populate('sender', 'prenom nom role imageUrl')
+      .populate('recipient', 'prenom nom role imageUrl')
+      .sort({ createdAt: 1 });
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error('Error fetching conversation:', error);
+    res.status(500).json({ error: 'Server error while fetching conversation' });
+  }
+};
+
+// Mark a message as read
+exports.markAsRead = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (message.recipient.toString() !== userId.toString()) {
+      return res.status(403).json({ error: 'Not authorized to mark this message as read' });
+    }
+
+    message.read = true;
+    await message.save();
+
+    res.status(200).json({ message: 'Message marked as read' });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ error: 'Server error while marking message as read' });
+  }
+};
+
+// Delete a message
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Only sender or recipient can delete the message
+    if (
+      message.sender.toString() !== userId.toString() &&
+      message.recipient.toString() !== userId.toString()
+    ) {
+      return res.status(403).json({ error: 'Not authorized to delete this message' });
+    }
+
+    // Delete file from server if it exists
+    if (message.fileUrl) {
+      const filePath = path.join(__dirname, '..', 'public', message.fileUrl);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await Message.deleteOne({ _id: messageId });
+
+    res.status(200).json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: 'Server error while deleting message' });
+  }
+};
+
+// Get unread senders
+exports.getUnreadSenders = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Aggregate unread messages by sender
+    const unreadSenders = await Message.aggregate([
       {
         $match: {
-          recipient: new mongoose.Types.ObjectId(req.user.id),
+          recipient: userId,
           read: false,
         },
       },
@@ -96,7 +178,6 @@ exports.getUnreadMessageSenders = async (req, res) => {
         $group: {
           _id: '$sender',
           unreadCount: { $sum: 1 },
-          latestMessage: { $max: '$createdAt' },
         },
       },
       {
@@ -116,221 +197,40 @@ exports.getUnreadMessageSenders = async (req, res) => {
           prenom: '$sender.prenom',
           nom: '$sender.nom',
           role: '$sender.role',
-          imageUrl: {
-            $cond: {
-              if: { $and: ['$sender.imageUrl', { $ne: ['$sender.imageUrl', ''] }] },
-              then: { $concat: [`${req.protocol}://${req.get('host')}/Uploads/`, '$sender.imageUrl'] },
-              else: null,
-            },
-          },
+          imageUrl: '$sender.imageUrl',
           unreadCount: 1,
-          latestMessage: 1,
         },
-      },
-      {
-        $sort: { latestMessage: -1 },
       },
     ]);
 
-    res.json(messages);
+    res.status(200).json(unreadSenders);
   } catch (error) {
-    console.error('Erreur lors de la récupération des expéditeurs de messages non lus:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des expéditeurs de messages non lus.', error: error.message });
+    console.error('Error fetching unread senders:', error);
+    res.status(500).json({ error: 'Server error while fetching unread senders' });
   }
 };
 
-exports.getConversation = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'ID d\'utilisateur invalide.' });
-    }
-    const conversationId = generateConversationId(req.user.id, userId);
-    const messages = await Message.find({ conversationId })
-      .populate('sender', 'prenom nom role imageUrl')
-      .populate('recipient', 'prenom nom role imageUrl')
-      .sort({ createdAt: 1 })
-      .lean();
-
-    // Update fileUrl to include full path
-    const updatedMessages = messages.map(msg => ({
-      ...msg,
-      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
-        : msg.fileUrl,
-      sender: {
-        ...msg.sender,
-        imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
-          : msg.sender.imageUrl || null,
-      },
-      recipient: {
-        ...msg.recipient,
-        imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
-          : msg.recipient.imageUrl || null,
-      },
-    }));
-
-    res.json(updatedMessages);
-  } catch (error) {
-    console.error('Erreur lors de la récupération de la conversation:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération de la conversation.', error: error.message });
-  }
-};
-
-exports.getReceivedMessages = async (req, res) => {
-  try {
-    const messages = await Message.find({ recipient: req.user.id })
-      .populate('sender', 'prenom nom role imageUrl')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const updatedMessages = messages.map(msg => ({
-      ...msg,
-      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
-        : msg.fileUrl,
-      sender: {
-        ...msg.sender,
-        imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
-          : msg.sender.imageUrl || null,
-      },
-    }));
-
-    res.json(updatedMessages);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des messages:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des messages.', error: error.message });
-  }
-};
-
-exports.getSentMessages = async (req, res) => {
-  try {
-    const messages = await Message.find({ sender: req.user.id })
-      .populate('recipient', 'prenom nom role imageUrl')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const updatedMessages = messages.map(msg => ({
-      ...msg,
-      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
-        : msg.fileUrl,
-      recipient: {
-        ...msg.recipient,
-        imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
-          : msg.recipient.imageUrl || null,
-      },
-    }));
-
-    res.json(updatedMessages);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des messages envoyés:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des messages envoyés.', error: error.message });
-  }
-};
-
-exports.getUnreadMessagesCount = async (req, res) => {
-  try {
-    const count = await Message.countDocuments({ recipient: req.user.id, read: false });
-    res.json({ count });
-  } catch (error) {
-    console.error('Erreur lors du comptage des messages non lus:', error);
-    res.status(500).json({ message: 'Erreur lors du comptage des messages non lus.', error: error.message });
-  }
-};
-
-exports.markMessageAsRead = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'ID de message invalide.' });
-    }
-    const message = await Message.findById(req.params.id);
-    if (!message) {
-      return res.status(404).json({ message: 'Message non trouvé.' });
-    }
-    if (message.recipient.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Accès non autorisé.' });
-    }
-    message.read = true;
-    await message.save();
-    await message.populate('sender', 'prenom nom role imageUrl');
-    await message.populate('recipient', 'prenom nom role imageUrl');
-    const updatedMessage = {
-      ...message.toObject(),
-      fileUrl: message.fileUrl && !message.fileUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}${message.fileUrl}`
-        : message.fileUrl,
-      sender: {
-        ...message.sender.toObject(),
-        imageUrl: message.sender.imageUrl && !message.sender.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${message.sender.imageUrl}`
-          : message.sender.imageUrl || null,
-      },
-      recipient: {
-        ...message.recipient.toObject(),
-        imageUrl: message.recipient.imageUrl && !message.recipient.imageUrl.startsWith('http')
-          ? `${req.protocol}://${req.get('host')}/Uploads/${message.recipient.imageUrl}`
-          : message.recipient.imageUrl || null,
-      },
-    };
-    res.json(updatedMessage);
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour du message:', error);
-    res.status(500).json({ message: 'Erreur lors de la mise à jour du message.', error: error.message });
-  }
-};
-
-exports.deleteMessage = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'ID de message invalide.' });
-    }
-    const message = await Message.findById(req.params.id);
-    if (!message) {
-      return res.status(404).json({ message: 'Message non trouvé.' });
-    }
-    if (message.recipient.toString() !== req.user.id && message.sender.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Accès non autorisé.' });
-    }
-    await message.deleteOne();
-    res.json({ message: 'Message supprimé.' });
-  } catch (error) {
-    console.error('Erreur lors de la suppression du message:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression du message.', error: error.message });
-  }
-};
-
-exports.deleteAllReceivedMessages = async (req, res) => {
-  try {
-    await Message.deleteMany({ recipient: req.user.id });
-    res.json({ message: 'Tous les messages reçus ont été supprimés.' });
-  } catch (error) {
-    console.error('Erreur lors de la suppression des messages:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression des messages.', error: error.message });
-  }
-};
-
+// Get teachers (for parent and student roles)
 exports.getTeachers = async (req, res) => {
   try {
-    const teachers = await User.find({ role: 'enseignant' })
-      .select('prenom nom imageUrl')
-      .lean();
-    if (!teachers || teachers.length === 0) {
-      return res.status(404).json({ message: 'Aucun enseignant trouvé.' });
-    }
-    const updatedTeachers = teachers.map(teacher => ({
-      ...teacher,
-      imageUrl: teacher.imageUrl && !teacher.imageUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}/Uploads/${teacher.imageUrl}`
-        : teacher.imageUrl || null,
-    }));
-    res.json(updatedTeachers);
+    const teachers = await User.find({ role: 'enseignant' }).select('prenom nom role imageUrl');
+    res.status(200).json(teachers);
   } catch (error) {
-    console.error('Erreur lors de la récupération des enseignants:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des enseignants.', error: error.message });
+    console.error('Error fetching teachers:', error);
+    res.status(500).json({ error: 'Server error while fetching teachers' });
+  }
+};
+
+// Get all users (for teacher role)
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find({ role: { $in: ['parent', 'eleve'] } })
+      .populate('niveau', 'nom')
+      .populate('classe', 'nom')
+      .select('prenom nom role imageUrl enfants niveau classe');
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error while fetching users' });
   }
 };
