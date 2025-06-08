@@ -160,30 +160,7 @@ exports.getUnreadMessageSenders = async (req, res) => {
     res.status(500).json({ message: 'Erreur lors de la récupération des expéditeurs de messages non lus.', error: error.message });
   }
 };
-exports.getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'ID d\'utilisateur invalide.' });
-    }
-    const user = await User.findById(id)
-      .select('prenom nom role imageUrl niveau classe enfants')
-      .lean();
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
-    }
-    const updatedUser = {
-      ...user,
-      imageUrl: user.imageUrl && !user.imageUrl.startsWith('http')
-        ? `${req.protocol}://${req.get('host')}/Uploads/${user.imageUrl}`
-        : user.imageUrl || null,
-    };
-    res.json(updatedUser);
-  } catch (error) {
-    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération de l\'utilisateur.', error: error.message });
-  }
-};
+
 exports.getConversation = async (req, res) => {
   try {
     const { userId } = req.params;
