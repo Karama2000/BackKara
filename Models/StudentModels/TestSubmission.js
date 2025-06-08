@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const testSubmissionSchema = new mongoose.Schema({
   testId: { type: mongoose.Schema.Types.ObjectId, ref: 'Test', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Eleve', required: true },
-  anonymousId: { type: String, required: false, unique: true }, // Champ pour anonymisation
+  anonymousId: { type: String, required: true, unique: true }, // Champ pour anonymisation
   submittedFile: { type: String, required: true },
   status: {
     type: String,
