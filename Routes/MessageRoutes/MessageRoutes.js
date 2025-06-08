@@ -14,5 +14,6 @@ router.delete('/:id', auth, messageController.deleteMessage);
 router.delete('/received', auth, messageController.deleteAllReceivedMessages);
 router.get('/unread-senders', auth, messageController.getUnreadMessageSenders);
 router.get('/teachers', auth, messageController.getTeachers);
+router.get('/teachers-for-parent', auth, messageController.getTeachersForParent);
 
 module.exports = router;

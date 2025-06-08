@@ -2,6 +2,7 @@ const Message = require('../../Models/SystemeMessage/Message');
 const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../../Models/AdminModels/User');
+const Classe = require('../../Models/AdminModels/Classe');
 
 const generateConversationId = (userId1, userId2) => {
   const sortedIds = [userId1, userId2].sort();
@@ -41,7 +42,7 @@ exports.sendMessage = async (req, res) => {
     // Handle uploaded files
     if (req.files) {
       const validImageExt = ['.jpeg', '.jpg', '.png'];
-      const validAudioExt = ['.mp3', '.wav', '.ogg', '.webm'];
+      const validAudioExt = ['.mp3', '.wav', '.ogg', '.webm', '.opus'];
       const validFileExt = ['.pdf', '.doc', '.docx'];
 
       for (const field of ['image', 'audio', 'file']) {
@@ -152,7 +153,6 @@ exports.getConversation = async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
-    // Update fileUrl to include full path
     const updatedMessages = messages.map(msg => ({
       ...msg,
       fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
@@ -331,6 +331,44 @@ exports.getTeachers = async (req, res) => {
     res.json(updatedTeachers);
   } catch (error) {
     console.error('Erreur lors de la récupération des enseignants:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des enseignants.', error: error.message });
+  }
+};
+
+exports.getTeachersForParent = async (req, res) => {
+  try {
+    const parent = await User.findById(req.user.id).lean();
+    if (!parent || parent.role !== 'parent') {
+      return res.status(403).json({ message: 'Accès non autorisé.' });
+    }
+
+    // Récupérer les classes des enfants
+    const children = await User.find({ _id: { $in: parent.enfants } }).lean();
+    const classeIds = children.map(child => child.classe?._id).filter(id => id);
+    
+    // Récupérer les enseignants associés aux classes
+    const classes = await Classe.find({ _id: { $in: classeIds } }).lean();
+    const teacherIds = classes.map(classe => classe.enseignant).filter(id => id);
+    
+    // Récupérer les enseignants
+    const teachers = await User.find({ _id: { $in: teacherIds }, role: 'enseignant' })
+      .select('prenom nom imageUrl')
+      .lean();
+
+    if (!teachers || teachers.length === 0) {
+      return res.status(404).json({ message: 'Aucun enseignant trouvé pour vos enfants.' });
+    }
+
+    const updatedTeachers = teachers.map(teacher => ({
+      ...teacher,
+      imageUrl: teacher.imageUrl && !teacher.imageUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}/Uploads/${teacher.imageUrl}`
+        : teacher.imageUrl || null,
+    }));
+
+    res.json(updatedTeachers);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des enseignants pour le parent:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des enseignants.', error: error.message });
   }
 };
