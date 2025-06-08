@@ -59,7 +59,7 @@ exports.sendMessage = async (req, res) => {
           } else if (validFileExt.includes(ext)) {
             fileType = 'file';
           } else {
-            return res.status(400).json({ message: 'Type de fichier non supporté.' });
+            return res.status(400).json({ message: `Type de fichier non supporté pour ${field}.` });
           }
 
           const fileMessage = new Message({
@@ -68,6 +68,7 @@ exports.sendMessage = async (req, res) => {
             conversationId,
             fileUrl,
             fileType,
+            filename: file.originalname, // Ajout du nom original pour affichage
           });
           await fileMessage.save();
           await fileMessage.populate('sender', 'prenom nom role imageUrl');
@@ -77,7 +78,27 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    res.status(201).json(messages);
+    // Formater les messages pour inclure les URLs complètes
+    const formattedMessages = messages.map(msg => ({
+      ...msg.toObject(),
+      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
+        : msg.fileUrl,
+      sender: {
+        ...msg.sender.toObject(),
+        imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
+          : msg.sender.imageUrl || null,
+      },
+      recipient: {
+        ...msg.recipient.toObject(),
+        imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
+          : msg.recipient.imageUrl || null,
+      },
+    }));
+
+    res.status(201).json(formattedMessages);
   } catch (error) {
     console.error('Erreur lors de l\'envoi du message:', error);
     res.status(500).json({ message: 'Erreur lors de l\'envoi du message.', error: error.message });
@@ -139,7 +160,30 @@ exports.getUnreadMessageSenders = async (req, res) => {
     res.status(500).json({ message: 'Erreur lors de la récupération des expéditeurs de messages non lus.', error: error.message });
   }
 };
-
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID d\'utilisateur invalide.' });
+    }
+    const user = await User.findById(id)
+      .select('prenom nom role imageUrl niveau classe enfants')
+      .lean();
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+    }
+    const updatedUser = {
+      ...user,
+      imageUrl: user.imageUrl && !user.imageUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}/Uploads/${user.imageUrl}`
+        : user.imageUrl || null,
+    };
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération de l\'utilisateur.', error: error.message });
+  }
+};
 exports.getConversation = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -162,13 +206,13 @@ exports.getConversation = async (req, res) => {
         ...msg.sender,
         imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
           ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
-          : msg.sender.imageUrl || null,
+          : msg.sender.imageUrl || 'https://via.placeholder.com/50?text=User',
       },
       recipient: {
         ...msg.recipient,
         imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
           ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
-          : msg.recipient.imageUrl || null,
+          : msg.recipient.imageUrl || 'https://via.placeholder.com/50?text=User',
       },
     }));
 
