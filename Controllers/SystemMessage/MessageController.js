@@ -1,7 +1,8 @@
 const Message = require('../../Models/SystemeMessage/Message');
 const path = require('path');
 const mongoose = require('mongoose');
-const User = require('../../Models/AdminModels/User'); 
+const User = require('../../Models/AdminModels/User');
+
 const generateConversationId = (userId1, userId2) => {
   const sortedIds = [userId1, userId2].sort();
   return `${sortedIds[0]}_${sortedIds[1]}`;
@@ -11,8 +12,8 @@ exports.sendMessage = async (req, res) => {
   try {
     const { recipientId, content } = req.body;
 
-    if (!recipientId) {
-      return res.status(400).json({ message: 'Destinataire requis.' });
+    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+      return res.status(400).json({ message: 'ID de destinataire invalide.' });
     }
 
     if (!content && !req.files) {
@@ -32,6 +33,8 @@ exports.sendMessage = async (req, res) => {
         fileType: 'text',
       });
       await textMessage.save();
+      await textMessage.populate('sender', 'prenom nom role imageUrl');
+      await textMessage.populate('recipient', 'prenom nom role imageUrl');
       messages.push(textMessage);
     }
 
@@ -44,7 +47,7 @@ exports.sendMessage = async (req, res) => {
       for (const field of ['image', 'audio', 'file']) {
         if (req.files[field]) {
           const file = req.files[field][0];
-          const fileUrl = `/Uploads/${file.filename}`;
+          const fileUrl = `${req.protocol}://${req.get('host')}/Uploads/${file.filename}`;
           const ext = path.extname(file.filename).toLowerCase();
           let fileType;
 
@@ -66,6 +69,8 @@ exports.sendMessage = async (req, res) => {
             fileType,
           });
           await fileMessage.save();
+          await fileMessage.populate('sender', 'prenom nom role imageUrl');
+          await fileMessage.populate('recipient', 'prenom nom role imageUrl');
           messages.push(fileMessage);
         }
       }
@@ -73,6 +78,7 @@ exports.sendMessage = async (req, res) => {
 
     res.status(201).json(messages);
   } catch (error) {
+    console.error('Erreur lors de l\'envoi du message:', error);
     res.status(500).json({ message: 'Erreur lors de l\'envoi du message.', error: error.message });
   }
 };
@@ -110,7 +116,13 @@ exports.getUnreadMessageSenders = async (req, res) => {
           prenom: '$sender.prenom',
           nom: '$sender.nom',
           role: '$sender.role',
-          imageUrl: '$sender.imageUrl',
+          imageUrl: {
+            $cond: {
+              if: { $and: ['$sender.imageUrl', { $ne: ['$sender.imageUrl', ''] }] },
+              then: { $concat: [`${req.protocol}://${req.get('host')}/Uploads/`, '$sender.imageUrl'] },
+              else: null,
+            },
+          },
           unreadCount: 1,
           latestMessage: 1,
         },
@@ -122,6 +134,7 @@ exports.getUnreadMessageSenders = async (req, res) => {
 
     res.json(messages);
   } catch (error) {
+    console.error('Erreur lors de la récupération des expéditeurs de messages non lus:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des expéditeurs de messages non lus.', error: error.message });
   }
 };
@@ -129,13 +142,39 @@ exports.getUnreadMessageSenders = async (req, res) => {
 exports.getConversation = async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'ID d\'utilisateur invalide.' });
+    }
     const conversationId = generateConversationId(req.user.id, userId);
     const messages = await Message.find({ conversationId })
-      .populate('sender', 'prenom nom role')
-      .populate('recipient', 'prenom nom role')
-      .sort({ createdAt: 1 });
-    res.json(messages);
+      .populate('sender', 'prenom nom role imageUrl')
+      .populate('recipient', 'prenom nom role imageUrl')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Update fileUrl to include full path
+    const updatedMessages = messages.map(msg => ({
+      ...msg,
+      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
+        : msg.fileUrl,
+      sender: {
+        ...msg.sender,
+        imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
+          : msg.sender.imageUrl || null,
+      },
+      recipient: {
+        ...msg.recipient,
+        imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
+          : msg.recipient.imageUrl || null,
+      },
+    }));
+
+    res.json(updatedMessages);
   } catch (error) {
+    console.error('Erreur lors de la récupération de la conversation:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération de la conversation.', error: error.message });
   }
 };
@@ -143,10 +182,26 @@ exports.getConversation = async (req, res) => {
 exports.getReceivedMessages = async (req, res) => {
   try {
     const messages = await Message.find({ recipient: req.user.id })
-      .populate('sender', 'prenom nom role')
-      .sort({ createdAt: -1 });
-    res.json(messages);
+      .populate('sender', 'prenom nom role imageUrl')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const updatedMessages = messages.map(msg => ({
+      ...msg,
+      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
+        : msg.fileUrl,
+      sender: {
+        ...msg.sender,
+        imageUrl: msg.sender.imageUrl && !msg.sender.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.sender.imageUrl}`
+          : msg.sender.imageUrl || null,
+      },
+    }));
+
+    res.json(updatedMessages);
   } catch (error) {
+    console.error('Erreur lors de la récupération des messages:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des messages.', error: error.message });
   }
 };
@@ -154,10 +209,26 @@ exports.getReceivedMessages = async (req, res) => {
 exports.getSentMessages = async (req, res) => {
   try {
     const messages = await Message.find({ sender: req.user.id })
-      .populate('recipient', 'prenom nom role')
-      .sort({ createdAt: -1 });
-    res.json(messages);
+      .populate('recipient', 'prenom nom role imageUrl')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const updatedMessages = messages.map(msg => ({
+      ...msg,
+      fileUrl: msg.fileUrl && !msg.fileUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}${msg.fileUrl}`
+        : msg.fileUrl,
+      recipient: {
+        ...msg.recipient,
+        imageUrl: msg.recipient.imageUrl && !msg.recipient.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${msg.recipient.imageUrl}`
+          : msg.recipient.imageUrl || null,
+      },
+    }));
+
+    res.json(updatedMessages);
   } catch (error) {
+    console.error('Erreur lors de la récupération des messages envoyés:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des messages envoyés.', error: error.message });
   }
 };
@@ -167,12 +238,16 @@ exports.getUnreadMessagesCount = async (req, res) => {
     const count = await Message.countDocuments({ recipient: req.user.id, read: false });
     res.json({ count });
   } catch (error) {
+    console.error('Erreur lors du comptage des messages non lus:', error);
     res.status(500).json({ message: 'Erreur lors du comptage des messages non lus.', error: error.message });
   }
 };
 
 exports.markMessageAsRead = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'ID de message invalide.' });
+    }
     const message = await Message.findById(req.params.id);
     if (!message) {
       return res.status(404).json({ message: 'Message non trouvé.' });
@@ -182,14 +257,38 @@ exports.markMessageAsRead = async (req, res) => {
     }
     message.read = true;
     await message.save();
-    res.json(message);
+    await message.populate('sender', 'prenom nom role imageUrl');
+    await message.populate('recipient', 'prenom nom role imageUrl');
+    const updatedMessage = {
+      ...message.toObject(),
+      fileUrl: message.fileUrl && !message.fileUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}${message.fileUrl}`
+        : message.fileUrl,
+      sender: {
+        ...message.sender.toObject(),
+        imageUrl: message.sender.imageUrl && !message.sender.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${message.sender.imageUrl}`
+          : message.sender.imageUrl || null,
+      },
+      recipient: {
+        ...message.recipient.toObject(),
+        imageUrl: message.recipient.imageUrl && !message.recipient.imageUrl.startsWith('http')
+          ? `${req.protocol}://${req.get('host')}/Uploads/${message.recipient.imageUrl}`
+          : message.recipient.imageUrl || null,
+      },
+    };
+    res.json(updatedMessage);
   } catch (error) {
+    console.error('Erreur lors de la mise à jour du message:', error);
     res.status(500).json({ message: 'Erreur lors de la mise à jour du message.', error: error.message });
   }
 };
 
 exports.deleteMessage = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'ID de message invalide.' });
+    }
     const message = await Message.findById(req.params.id);
     if (!message) {
       return res.status(404).json({ message: 'Message non trouvé.' });
@@ -200,6 +299,7 @@ exports.deleteMessage = async (req, res) => {
     await message.deleteOne();
     res.json({ message: 'Message supprimé.' });
   } catch (error) {
+    console.error('Erreur lors de la suppression du message:', error);
     res.status(500).json({ message: 'Erreur lors de la suppression du message.', error: error.message });
   }
 };
@@ -209,6 +309,7 @@ exports.deleteAllReceivedMessages = async (req, res) => {
     await Message.deleteMany({ recipient: req.user.id });
     res.json({ message: 'Tous les messages reçus ont été supprimés.' });
   } catch (error) {
+    console.error('Erreur lors de la suppression des messages:', error);
     res.status(500).json({ message: 'Erreur lors de la suppression des messages.', error: error.message });
   }
 };
@@ -221,9 +322,15 @@ exports.getTeachers = async (req, res) => {
     if (!teachers || teachers.length === 0) {
       return res.status(404).json({ message: 'Aucun enseignant trouvé.' });
     }
-    res.json(teachers);
+    const updatedTeachers = teachers.map(teacher => ({
+      ...teacher,
+      imageUrl: teacher.imageUrl && !teacher.imageUrl.startsWith('http')
+        ? `${req.protocol}://${req.get('host')}/Uploads/${teacher.imageUrl}`
+        : teacher.imageUrl || null,
+    }));
+    res.json(updatedTeachers);
   } catch (error) {
-    console.error('Error in getTeachers:', error); // Add logging for debugging
+    console.error('Erreur lors de la récupération des enseignants:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des enseignants.', error: error.message });
   }
 };
