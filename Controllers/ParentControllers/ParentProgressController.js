@@ -6,10 +6,48 @@ const QuizSubmission = require('../../Models/StudentModels/QuizSubmission');
 const TestSubmission = require('../../Models/StudentModels/TestSubmission');
 const Notification = require('../../Models/SystemeNotif/Notification');
 
-// Récupérer les progrès des enfants d'un parent
+// Fetch children for a parent
+exports.getChildren = async (req, res) => {
+  try {
+    console.log('Fetching children for user ID:', req.user._id);
+    const parent = await Parent.findById(req.user._id).populate({
+      path: 'enfants',
+      populate: [
+        { path: 'niveau', select: 'nom' },
+        { path: 'classe', select: 'nom' },
+      ],
+    });
+
+    if (!parent) {
+      console.log('Parent not found for ID:', req.user._id);
+      return res.status(404).json({ message: 'Parent non trouvé.' });
+    }
+
+    console.log('Parent document:', parent);
+    const children = parent.enfants && parent.enfants.length > 0
+      ? parent.enfants.map((child) => ({
+          _id: child._id,
+          nom: child.nom,
+          prenom: child.prenom,
+          niveau: child.niveau?.nom || 'N/A',
+          classe: child.classe?.nom || 'N/A',
+          numInscript: child.numInscript || 'N/A',
+          imageUrl: child.imageUrl ? `${req.protocol}://${req.get('host')}/Uploads/${child.imageUrl}` : null,
+        }))
+      : [];
+
+    console.log('Children retrieved:', children);
+    res.status(200).json(children);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des enfants:', error);
+    res.status(500).json({ message: 'Erreur serveur.', error: error.message });
+  }
+};
+
+// Fetch progress of parent's children
 exports.getChildrenProgress = async (req, res) => {
   try {
-    // Récupérer le parent avec ses enfants
+    // Fetch parent with children
     const parent = await Parent.findById(req.user._id).populate({
       path: 'enfants',
       populate: [
@@ -23,60 +61,72 @@ exports.getChildrenProgress = async (req, res) => {
       return res.status(404).json({ message: 'Parent non trouvé.' });
     }
 
-    // Vérifier les enfants
     const childrenIds = parent.enfants?.length > 0 ? parent.enfants.map((child) => child._id) : [];
     console.log('Children IDs:', childrenIds);
-    console.log('Children details:', parent.enfants.map(child => ({
-      _id: child._id,
-      nom: child.nom,
-      prenom: child.prenom,
-      niveau: child.niveau?.nom,
-      classe: child.classe?.nom
-    })));
 
-    // Validation des enfants
+    // Validate children data
     if (parent.enfants?.length > 0) {
       parent.enfants.forEach((child) => {
         if (!child.nom || !child.prenom) {
           console.warn(`Child ${child._id} has missing nom or prenom:`, child);
+        }
+        if (!child.niveau || !child.classe) {
+          console.warn(`Child ${child._id} has missing niveau or classe:`, child);
         }
       });
     } else {
       console.warn('No enfants found for parent:', req.user._id);
     }
 
-    // Récupérer les progrès des leçons
+    // Fetch progress data with stricter population checks
     const lessonsProgress = await Progress.find({ studentId: { $in: childrenIds } })
-      .populate('lessonId', 'title')
+      .populate({
+        path: 'lessonId',
+        select: 'title',
+        options: { strictPopulate: false },
+      })
       .lean();
-    console.log('Lessons progress:', lessonsProgress.map(p => ({
-      studentId: p.studentId,
-      lessonId: p.lessonId?._id,
-      title: p.lessonId?.title
-    })));
 
-    // Récupérer les soumissions de quiz
-    const quizSubmissions = await QuizSubmission.find({ studentId: { $in: childrenIds } })
-      .populate('quizId', 'titre difficulty')
+    const quizSubmissions = await QuizSubmission.find({
+      studentId: { $in: childrenIds },
+      quizId: { $exists: true, $ne: null }, // Only include submissions with valid quizId
+    })
+      .populate({
+        path: 'quizId',
+        select: 'titre difficulty',
+        options: { strictPopulate: false },
+      })
       .lean();
-    console.log('Quiz submissions:', quizSubmissions.map(q => ({
-      studentId: q.studentId,
-      quizId: q.quizId?._id,
-      titre: q.quizId?.titre,
-      difficulty: q.quizId?.difficulty
-    })));
 
-    // Récupérer les soumissions de tests
-    const testSubmissions = await TestSubmission.find({ studentId: { $in: childrenIds } })
-      .populate('testId', 'title')
+    const testSubmissions = await TestSubmission.find({
+      studentId: { $in: childrenIds },
+      testId: { $exists: true, $ne: null }, // Only include submissions with valid testId
+    })
+      .populate({
+        path: 'testId',
+        select: 'title',
+        options: { strictPopulate: false },
+      })
       .lean();
-    console.log('Test submissions:', testSubmissions.map(t => ({
-      studentId: t.studentId,
-      testId: t.testId?._id,
-      title: t.testId?.title
-    })));
 
-    // Organiser les données par enfant
+    // Log missing or invalid references
+    lessonsProgress.forEach((p) => {
+      if (!p.lessonId || !p.lessonId.title) {
+        console.warn(`Lesson progress ${p._id} has no valid lessonId or title:`, p);
+      }
+    });
+    quizSubmissions.forEach((q) => {
+      if (!q.quizId || !q.quizId.titre) {
+        console.warn(`Quiz submission ${q._id} has no valid quizId or titre:`, q);
+      }
+    });
+    testSubmissions.forEach((t) => {
+      if (!t.testId || !t.testId.title) {
+        console.warn(`Test submission ${t._id} has no valid testId or title:`, t);
+      }
+    });
+
+    // Organize data by child
     const childrenProgress = parent.enfants?.length > 0
       ? parent.enfants.map((child) => ({
           childId: child._id,
@@ -89,7 +139,7 @@ exports.getChildrenProgress = async (req, res) => {
             .filter((p) => p.studentId && p.studentId.toString() === child._id.toString())
             .map((p) => ({
               lessonId: p.lessonId?._id || 'N/A',
-              title: p.lessonId?.title || 'Titre non disponible',
+              title: p.lessonId?.title || 'Leçon supprimée ou non disponible',
               status: p.status || 'inconnu',
               currentPage: p.currentPage || 0,
               completionDate: p.completionDate,
@@ -98,7 +148,7 @@ exports.getChildrenProgress = async (req, res) => {
             .filter((q) => q.studentId && q.studentId.toString() === child._id.toString())
             .map((q) => ({
               quizId: q.quizId?._id || 'N/A',
-              title: q.quizId?.titre || 'Titre non disponible',
+              title: q.quizId?.titre || 'Quiz supprimé ou non disponible',
               difficulty: q.quizId?.difficulty || 'Inconnu',
               score: q.score || 0,
               total: q.total || 0,
@@ -109,7 +159,7 @@ exports.getChildrenProgress = async (req, res) => {
             .filter((t) => t.studentId && t.studentId.toString() === child._id.toString())
             .map((t) => ({
               testId: t.testId?._id || 'N/A',
-              title: t.testId?.title || 'Titre non disponible',
+              title: t.testId?.title || 'Test supprimé ou non disponible',
               status: t.status || 'inconnu',
               feedback: t.feedback || 'Aucun feedback',
               submittedAt: t.submittedAt,
@@ -117,7 +167,7 @@ exports.getChildrenProgress = async (req, res) => {
         }))
       : [];
 
-    console.log('Final children progress:', childrenProgress);
+    console.log('Final children progress:', JSON.stringify(childrenProgress, null, 2));
     res.status(200).json(childrenProgress);
   } catch (error) {
     console.error('Erreur lors de la récupération des progrès des enfants:', error);
@@ -125,7 +175,7 @@ exports.getChildrenProgress = async (req, res) => {
   }
 };
 
-// Récupérer les notifications du parent
+// Fetch parent notifications
 exports.getParentNotifications = async (req, res) => {
   try {
     console.log('Fetching notifications for user ID:', req.user._id);
@@ -141,7 +191,7 @@ exports.getParentNotifications = async (req, res) => {
   }
 };
 
-// Marquer une notification comme lue
+// Mark a notification as read
 exports.markNotificationAsRead = async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
@@ -159,7 +209,7 @@ exports.markNotificationAsRead = async (req, res) => {
   }
 };
 
-// Supprimer une notification
+// Delete a notification
 exports.deleteParentNotification = async (req, res) => {
   try {
     const notification = await Notification.findOneAndDelete({
@@ -176,7 +226,7 @@ exports.deleteParentNotification = async (req, res) => {
   }
 };
 
-// Supprimer toutes les notifications du parent
+// Delete all notifications for a parent
 exports.deleteAllParentNotifications = async (req, res) => {
   try {
     await Notification.deleteMany({ userId: req.user._id });
