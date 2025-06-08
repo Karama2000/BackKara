@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const authMiddleware = require('../../MiddleWare/protectRoute');
 const lessonController = require('../../Controllers/TeacherControllers/LessonController');
+const fs = require('fs');
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
