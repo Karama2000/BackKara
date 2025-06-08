@@ -1,7 +1,7 @@
 const Parent = require('../../Models/AdminModels/Parent');
-  const Eleve = require('../../Models/AdminModels/Eleve');
+const Eleve = require('../../Models/AdminModels/Eleve');
 
- exports.getChildren = async (req, res) => {
+exports.getChildren = async (req, res) => {
   try {
     console.log('Fetching children for user ID:', req.user._id);
     const parent = await Parent.findById(req.user._id).populate({
@@ -26,7 +26,7 @@ const Parent = require('../../Models/AdminModels/Parent');
           niveau: child.niveau?.nom || 'N/A',
           classe: child.classe?.nom || 'N/A',
           numInscript: child.numInscript || 'N/A',
-          imageUrl: child.imageUrl ? `http://localhost:5000/Uploads/${child.imageUrl}` : null,
+          imageUrl: child.imageUrl ? `${req.protocol}://${req.get('host')}/Uploads/${child.imageUrl}` : null,
         }))
       : [];
 
