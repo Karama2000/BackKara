@@ -27,24 +27,10 @@ const upload = multer({
   },
 });
 
-// Log route registration
-console.log('Registering student routes...');
-router.get('/tests', protectRoute, (req, res, next) => {
-  console.log('GET /api/student/tests called');
-  studentTestController.getStudentTests(req, res, next);
-});
-router.post('/tests/submit', protectRoute, upload.single('submittedFile'), (req, res, next) => {
-  console.log('POST /api/student/tests/submit called');
-  studentTestController.submitTest(req, res, next);
-});
-router.put('/tests/submission/:submissionId', protectRoute, upload.single('submittedFile'), (req, res, next) => {
-  console.log(`PUT /api/student/tests/submission/${req.params.submissionId} called`);
-  studentTestController.updateSubmission(req, res, next);
-});
-router.delete('/tests/submission/:submissionId', protectRoute, (req, res, next) => {
-  console.log(`DELETE /api/student/tests/submission/${req.params.submissionId} called`);
-  studentTestController.deleteSubmission(req, res, next);
-});
-console.log('Student routes registered:', router.stack.map(r => `${r.route.method.toUpperCase()} ${r.route.path}`));
+// Log to verify routes are registered
+router.get('/tests', protectRoute, studentTestController.getStudentTests);
+router.post('/tests/submit', protectRoute, upload.single('submittedFile'), studentTestController.submitTest);
+router.put('/tests/submission/:submissionId', protectRoute, upload.single('submittedFile'), studentTestController.updateSubmission);
+router.delete('/tests/submission/:submissionId', protectRoute, studentTestController.deleteSubmission);
 
 module.exports = router;
