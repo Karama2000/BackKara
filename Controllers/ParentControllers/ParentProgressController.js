@@ -89,7 +89,7 @@ exports.getChildrenProgress = async (req, res) => {
 
     const quizSubmissions = await QuizSubmission.find({
       studentId: { $in: childrenIds },
-      quizId: { $exists: true, $ne: null }, // Only include submissions with valid quizId
+      quizId: { $exists: true, $ne: null },
     })
       .populate({
         path: 'quizId',
@@ -100,7 +100,7 @@ exports.getChildrenProgress = async (req, res) => {
 
     const testSubmissions = await TestSubmission.find({
       studentId: { $in: childrenIds },
-      testId: { $exists: true, $ne: null }, // Only include submissions with valid testId
+      testId: { $exists: true, $ne: null },
     })
       .populate({
         path: 'testId',
@@ -171,6 +171,51 @@ exports.getChildrenProgress = async (req, res) => {
     res.status(200).json(childrenProgress);
   } catch (error) {
     console.error('Erreur lors de la récupération des progrès des enfants:', error);
+    res.status(500).json({ message: 'Erreur serveur.', error: error.message });
+  }
+};
+
+// Delete progress of parent's children
+exports.deleteChildrenProgress = async (req, res) => {
+  try {
+    console.log('Deleting progress for parent ID:', req.user._id);
+    const parent = await Parent.findById(req.user._id).select('enfants');
+    if (!parent) {
+      console.log('Parent not found for ID:', req.user._id);
+      return res.status(404).json({ message: 'Parent non trouvé.' });
+    }
+
+    const childrenIds = parent.enfants?.length > 0 ? parent.enfants.map((child) => child._id) : [];
+    console.log('Children IDs for deletion:', childrenIds);
+
+    if (childrenIds.length === 0) {
+      console.log('No children found for parent:', req.user._id);
+      return res.status(400).json({ message: 'Aucun enfant associé à ce parent.' });
+    }
+
+    // Delete progress records
+    const [lessonsDeleted, quizzesDeleted, testsDeleted] = await Promise.all([
+      Progress.deleteMany({ studentId: { $in: childrenIds } }),
+      QuizSubmission.deleteMany({ studentId: { $in: childrenIds } }),
+      TestSubmission.deleteMany({ studentId: { $in: childrenIds } }),
+    ]);
+
+    console.log('Deletion results:', {
+      lessonsDeleted: lessonsDeleted.deletedCount,
+      quizzesDeleted: quizzesDeleted.deletedCount,
+      testsDeleted: testsDeleted.deletedCount,
+    });
+
+    res.status(200).json({
+      message: 'Progrès des enfants supprimés avec succès.',
+      details: {
+        lessonsDeleted: lessonsDeleted.deletedCount,
+        quizzesDeleted: quizzesDeleted.deletedCount,
+        testsDeleted: testsDeleted.deletedCount,
+      },
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression des progrès des enfants:', error);
     res.status(500).json({ message: 'Erreur serveur.', error: error.message });
   }
 };
