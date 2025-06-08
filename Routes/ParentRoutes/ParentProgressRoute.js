@@ -12,5 +12,5 @@ router.delete('/notifications', authMiddleware, parentProgressController.deleteA
 router.get('/children', authMiddleware, parentController.getChildren);
 router.delete('/parent/notifications/:id', authMiddleware, parentProgressController.deleteParentNotification);
 router.delete('/parent/notifications', authMiddleware, parentProgressController.deleteAllParentNotifications);
-
+router.delete('/progress', authMiddleware, parentProgressController.deleteChildrenProgress);
 module.exports = router;
