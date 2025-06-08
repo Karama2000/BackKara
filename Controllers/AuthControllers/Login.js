@@ -1,4 +1,3 @@
-// Controllers/AuthControllers/Login.js
 const jwt = require('jsonwebtoken');
 const User = require('../../Models/AdminModels/User');
 
@@ -8,11 +7,6 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Utilisateur non trouvé' });
-
-    // Vérifier si le compte est confirmé
-    if (!user.isConfirmed && user.role !== 'admin') {
-      return res.status(403).json({ message: 'Veuillez confirmer votre email avant de vous connecter.' });
-    }
 
     // Vérifier le statut pour les nouveaux utilisateurs
     if (user.status) { // Si le champ status existe (nouveaux utilisateurs)
