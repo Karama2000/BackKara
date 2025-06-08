@@ -4,7 +4,7 @@ const parentProgressController = require('../../Controllers/ParentControllers/Pa
 const parentController = require('../../Controllers/ParentControllers/ParentController');
 const authMiddleware = require('../../MiddleWare/protectRoute');
 
-router.get('/parent/children', authMiddleware, parentProgressController.getChildren);
+router.get('/parent/children', authMiddleware, parentController.getChildren);
 router.get('/parent/progress', authMiddleware, parentProgressController.getChildrenProgress);
 router.delete('/parent/progress', authMiddleware, parentProgressController.deleteChildrenProgress);
 router.get('/parent/notifications', authMiddleware, parentProgressController.getParentNotifications);
