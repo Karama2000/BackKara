@@ -10,7 +10,7 @@ router.put('/notifications/:id/read', authMiddleware, parentProgressController.m
 router.delete('/notifications/:id', authMiddleware, parentProgressController.deleteParentNotification);
 router.delete('/notifications', authMiddleware, parentProgressController.deleteAllParentNotifications);
 router.get('/children', authMiddleware, parentController.getChildren);
-router.delete('/parent/notifications/:id', authMiddleware, parentController.deleteParentNotification);
-router.delete('/parent/notifications', authMiddleware, parentController.deleteAllParentNotifications);
+router.delete('/parent/notifications/:id', authMiddleware, parentProgressController.deleteParentNotification);
+router.delete('/parent/notifications', authMiddleware, parentProgressController.deleteAllParentNotifications);
 
 module.exports = router;
