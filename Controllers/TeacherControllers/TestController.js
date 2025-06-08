@@ -321,37 +321,45 @@ exports.getStudentProgress = async (req, res) => {
   try {
     const teacherId = req.user._id;
 
+    // Récupérer les tests créés par l'enseignant
     const tests = await Test.find({ teacherId })
       .populate('lessonId', 'title')
       .populate('programId', 'title niveauId')
       .lean();
 
     const testIds = tests.map((test) => test._id);
+
+    // Récupérer toutes les soumissions pour ces tests, incluant studentId
     const submissions = await TestSubmission.find({ testId: { $in: testIds } })
-      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
+      .select('testId studentId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
       .populate('testId', 'title')
       .lean();
 
+    // Récupérer les leçons créées par l'enseignant
     const lessons = await Lesson.find({ teacherId })
       .populate('programId', 'title niveauId')
       .lean();
 
     const lessonIds = lessons.map((lesson) => lesson._id);
+
+    // Récupérer les progrès des leçons
     const progress = await mongoose.model('Progress').find({ lessonId: { $in: lessonIds } })
       .populate('studentId', 'username prenom nom niveau classe')
       .populate('lessonId', 'title')
       .lean();
 
+    // Récupérer tous les étudiants
     const students = await mongoose.model('User').find({ __t: 'Eleve' })
       .select('username prenom nom niveau classe')
       .lean();
 
+    // Construire la réponse en associant les données
     const studentProgress = students.map((student) => {
       const studentSubmissions = submissions.filter(
-        (sub) => sub.studentId?.toString() === student._id.toString()
+        (sub) => sub.studentId && sub.studentId.toString() === student._id.toString()
       );
       const studentProgress = progress.filter(
-        (prog) => prog.studentId._id.toString() === student._id.toString()
+        (prog) => prog.studentId && prog.studentId._id.toString() === student._id.toString()
       );
 
       return {
@@ -367,20 +375,26 @@ exports.getStudentProgress = async (req, res) => {
           testTitle: sub.testId.title,
           status: sub.status,
           submittedAt: sub.submittedAt,
-          feedback: sub.feedback,
-          correctionFile: sub.correctionFile,
+          feedback: sub.feedback || null,
+          correctionFile: sub.correctionFile || null,
         })),
         lessons: studentProgress.map((prog) => ({
           lessonId: prog.lessonId._id,
           lessonTitle: prog.lessonId.title,
           status: prog.status,
-          notes: prog.notes,
-          completionDate: prog.completionDate,
+          currentPage: prog.currentPage || 1,
+          notes: prog.notes || null,
+          completionDate: prog.completionDate || null,
         })),
       };
     });
 
-    res.status(200).json(studentProgress);
+    // Filtrer pour ne renvoyer que les étudiants avec des tests ou des leçons
+    const filteredStudentProgress = studentProgress.filter(
+      (sp) => sp.tests.length > 0 || sp.lessons.length > 0
+    );
+
+    res.status(200).json(filteredStudentProgress);
   } catch (error) {
     console.error('Erreur lors de la récupération des progrès des élèves:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des progrès des élèves.', error: error.message });
