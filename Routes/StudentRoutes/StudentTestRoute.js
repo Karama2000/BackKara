@@ -5,7 +5,6 @@ const path = require('path');
 const protectRoute = require('../../MiddleWare/protectRoute');
 const studentTestController = require('../../Controllers/StudentControllers/StudentTestController');
 
-// Multer configuration for student test submissions
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'Uploads/');
@@ -28,8 +27,24 @@ const upload = multer({
   },
 });
 
-// Routes
-router.get('/tests', protectRoute, studentTestController.getStudentTests);
-router.post('/tests/submit', protectRoute, upload.single('submittedFile'), studentTestController.submitTest);
+// Log route registration
+console.log('Registering student routes...');
+router.get('/tests', protectRoute, (req, res, next) => {
+  console.log('GET /api/student/tests called');
+  studentTestController.getStudentTests(req, res, next);
+});
+router.post('/tests/submit', protectRoute, upload.single('submittedFile'), (req, res, next) => {
+  console.log('POST /api/student/tests/submit called');
+  studentTestController.submitTest(req, res, next);
+});
+router.put('/tests/submission/:submissionId', protectRoute, upload.single('submittedFile'), (req, res, next) => {
+  console.log(`PUT /api/student/tests/submission/${req.params.submissionId} called`);
+  studentTestController.updateSubmission(req, res, next);
+});
+router.delete('/tests/submission/:submissionId', protectRoute, (req, res, next) => {
+  console.log(`DELETE /api/student/tests/submission/${req.params.submissionId} called`);
+  studentTestController.deleteSubmission(req, res, next);
+});
+console.log('Student routes registered:', router.stack.map(r => `${r.route.method.toUpperCase()} ${r.route.path}`));
 
 module.exports = router;

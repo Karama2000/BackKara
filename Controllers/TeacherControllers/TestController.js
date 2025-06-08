@@ -1,9 +1,8 @@
+const mongoose = require('mongoose');
 const Test = require('../../Models/TeacherModels/Test');
 const TestSubmission = require('../../Models/StudentModels/TestSubmission');
 const Notification = require('../../Models/SystemeNotif/Notification');
-const mongoose = require('mongoose');
 const Lesson = require('../../Models/TeacherModels/Lesson');
-const Progress = require('../../Models/StudentModels/Progress');
 
 exports.getAllTests = async (req, res) => {
   try {
@@ -19,8 +18,8 @@ exports.getAllTests = async (req, res) => {
       .lean();
     res.status(200).json(tests);
   } catch (error) {
-    console.error('Error fetching tests:', error);
-    res.status(500).json({ message: 'Error fetching tests.', error: error.message });
+    console.error('Erreur lors de la récupération des tests:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des tests.', error: error.message });
   }
 };
 
@@ -30,16 +29,16 @@ exports.createTest = async (req, res) => {
     const mediaFile = req.file ? req.file.filename : null;
 
     if (!lessonId || !programId || !unitId || !title) {
-      return res.status(400).json({ message: 'Missing required fields.' });
+      return res.status(400).json({ message: 'Champs obligatoires manquants.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(lessonId) || !mongoose.Types.ObjectId.isValid(programId) || !mongoose.Types.ObjectId.isValid(unitId)) {
-      return res.status(400).json({ message: 'Invalid Lesson ID, Program ID, or Unit ID.' });
+      return res.status(400).json({ message: 'ID de leçon, programme ou unité invalide.' });
     }
 
     const lesson = await Lesson.findOne({ _id: lessonId, teacherId: req.user._id });
     if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found or unauthorized.' });
+      return res.status(404).json({ message: 'Leçon non trouvée ou non autorisée.' });
     }
 
     const test = new Test({
@@ -59,7 +58,7 @@ exports.createTest = async (req, res) => {
       .populate('unitId', 'title')
       .lean();
 
-    // Notify students in the program’s niveau
+    // Notifier les élèves du niveau
     const program = await mongoose.model('Program').findById(programId);
     const students = await mongoose.model('User').find({
       __t: 'Eleve',
@@ -76,7 +75,7 @@ exports.createTest = async (req, res) => {
 
     await Notification.insertMany(notifications);
 
-    // Notify the teacher
+    // Notifier l'enseignant
     const teacherNotification = new Notification({
       userId: req.user._id,
       type: 'test_added',
@@ -88,8 +87,8 @@ exports.createTest = async (req, res) => {
 
     res.status(201).json(populatedTest);
   } catch (error) {
-    console.error('Error creating test:', error);
-    res.status(500).json({ message: 'Error creating test.', error: error.message });
+    console.error('Erreur lors de la création du test:', error);
+    res.status(500).json({ message: 'Erreur lors de la création du test.', error: error.message });
   }
 };
 
@@ -100,21 +99,21 @@ exports.updateTest = async (req, res) => {
     const mediaFile = req.file ? req.file.filename : req.body.mediaFile;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid Test ID.' });
+      return res.status(400).json({ message: 'ID de test invalide.' });
     }
 
     const test = await Test.findOne({ _id: id, teacherId: req.user._id });
     if (!test) {
-      return res.status(404).json({ message: 'Test not found or unauthorized.' });
+      return res.status(404).json({ message: 'Test non trouvé ou non autorisé.' });
     }
 
     if (lessonId) {
       if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-        return res.status(400).json({ message: 'Invalid Lesson ID.' });
+        return res.status(400).json({ message: 'ID de leçon invalide.' });
       }
       const lesson = await Lesson.findOne({ _id: lessonId, teacherId: req.user._id });
       if (!lesson) {
-        return res.status(404).json({ message: 'Lesson not found or unauthorized.' });
+        return res.status(404).json({ message: 'Leçon non trouvée ou non autorisée.' });
       }
       test.lessonId = lessonId;
     }
@@ -134,8 +133,8 @@ exports.updateTest = async (req, res) => {
 
     res.status(200).json(populatedTest);
   } catch (error) {
-    console.error('Error updating test:', error);
-    res.status(500).json({ message: 'Error updating test.', error: error.message });
+    console.error('Erreur lors de la mise à jour du test:', error);
+    res.status(500).json({ message: 'Erreur lors de la mise à jour du test.', error: error.message });
   }
 };
 
@@ -144,21 +143,20 @@ exports.deleteTest = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid Test ID.' });
+      return res.status(400).json({ message: 'ID de test invalide.' });
     }
 
     const test = await Test.findOneAndDelete({ _id: id, teacherId: req.user._id });
     if (!test) {
-      return res.status(404).json({ message: 'Test not found or unauthorized.' });
+      return res.status(404).json({ message: 'Test non trouvé ou non autorisé.' });
     }
 
-    // Optionally, delete associated submissions
     await TestSubmission.deleteMany({ testId: id });
 
-    res.status(200).json({ message: 'Test deleted successfully.' });
+    res.status(200).json({ message: 'Test supprimé avec succès.' });
   } catch (error) {
-    console.error('Error deleting test:', error);
-    res.status(500).json({ message: 'Error deleting test.', error: error.message });
+    console.error('Erreur lors de la suppression du test:', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du test.', error: error.message });
   }
 };
 
@@ -168,12 +166,12 @@ exports.getTestSubmissions = async (req, res) => {
     const query = {};
     if (testId) {
       if (!mongoose.Types.ObjectId.isValid(testId)) {
-        return res.status(400).json({ message: 'Invalid Test ID.' });
+        return res.status(400).json({ message: 'ID de test invalide.' });
       }
       query.testId = testId;
       const test = await Test.findOne({ _id: testId, teacherId: req.user._id });
       if (!test) {
-        return res.status(404).json({ message: 'Test not found or unauthorized.' });
+        return res.status(404).json({ message: 'Test non trouvé ou non autorisé.' });
       }
     } else {
       const teacherTests = await Test.find({ teacherId: req.user._id }).select('_id');
@@ -181,14 +179,14 @@ exports.getTestSubmissions = async (req, res) => {
     }
 
     const submissions = await TestSubmission.find(query)
+      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
       .populate('testId', 'title')
-      .populate('studentId', 'username')
       .lean();
 
     res.status(200).json(submissions);
   } catch (error) {
-    console.error('Error fetching test submissions:', error);
-    res.status(500).json({ message: 'Error fetching submissions.', error: error.message });
+    console.error('Erreur lors de la récupération des soumissions:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des soumissions.', error: error.message });
   }
 };
 
@@ -199,7 +197,7 @@ exports.provideFeedback = async (req, res) => {
     const correctionFile = req.file ? req.file.filename : null;
 
     if (!mongoose.Types.ObjectId.isValid(submissionId)) {
-      return res.status(400).json({ message: 'Invalid Submission ID.' });
+      return res.status(400).json({ message: 'ID de soumission invalide.' });
     }
 
     const submission = await TestSubmission.findById(submissionId).populate({
@@ -208,19 +206,19 @@ exports.provideFeedback = async (req, res) => {
     });
 
     if (!submission || !submission.testId) {
-      return res.status(404).json({ message: 'Submission not found or unauthorized.' });
+      return res.status(404).json({ message: 'Soumission non trouvée ou non autorisée.' });
     }
 
     if (feedback) submission.feedback = feedback;
     if (status) submission.status = status;
     if (correctionFile) submission.correctionFile = correctionFile;
-    if (status === 'corrigé') {
+    if (status === 'corrected') {
       submission.correctedAt = new Date();
     }
 
     await submission.save();
 
-    if (status === 'corrigé') {
+    if (status === 'corrected') {
       const notification = new Notification({
         userId: submission.studentId,
         type: 'test_corrected',
@@ -232,54 +230,125 @@ exports.provideFeedback = async (req, res) => {
     }
 
     const populatedSubmission = await TestSubmission.findById(submission._id)
+      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
       .populate('testId', 'title')
-      .populate('studentId', 'username prenom nom')
       .lean();
 
     res.status(200).json(populatedSubmission);
   } catch (error) {
-    console.error('Error providing feedback:', error);
-    res.status(500).json({ message: 'Error providing feedback.', error: error.message });
+    console.error('Erreur lors de la soumission du feedback:', error);
+    res.status(500).json({ message: 'Erreur lors de la soumission du feedback.', error: error.message });
   }
 };
+
+exports.updateFeedback = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { feedback, status } = req.body;
+    const correctionFile = req.file ? req.file.filename : null;
+
+    if (!mongoose.Types.ObjectId.isValid(submissionId)) {
+      return res.status(400).json({ message: 'ID de soumission invalide.' });
+    }
+
+    const submission = await TestSubmission.findById(submissionId).populate({
+      path: 'testId',
+      match: { teacherId: req.user._id },
+    });
+
+    if (!submission || !submission.testId) {
+      return res.status(404).json({ message: 'Soumission non trouvée ou non autorisée.' });
+    }
+
+    if (feedback) submission.feedback = feedback;
+    if (status) submission.status = status;
+    if (correctionFile) submission.correctionFile = correctionFile;
+    if (status === 'corrected') {
+      submission.correctedAt = new Date();
+    }
+
+    await submission.save();
+
+    const populatedSubmission = await TestSubmission.findById(submission._id)
+      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
+      .populate('testId', 'title')
+      .lean();
+
+    res.status(200).json(populatedSubmission);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du feedback:', error);
+    res.status(500).json({ message: 'Erreur lors de la mise à jour du feedback.', error: error.message });
+  }
+};
+
+exports.deleteFeedback = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(submissionId)) {
+      return res.status(400).json({ message: 'ID de soumission invalide.' });
+    }
+
+    const submission = await TestSubmission.findById(submissionId).populate({
+      path: 'testId',
+      match: { teacherId: req.user._id },
+    });
+
+    if (!submission || !submission.testId) {
+      return res.status(404).json({ message: 'Soumission non trouvée ou non autorisée.' });
+    }
+
+    submission.feedback = null;
+    submission.correctionFile = null;
+    submission.status = 'submitted';
+    submission.correctedAt = null;
+
+    await submission.save();
+
+    const populatedSubmission = await TestSubmission.findById(submission._id)
+      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
+      .populate('testId', 'title')
+      .lean();
+
+    res.status(200).json({ message: 'Feedback supprimé avec succès.', submission: populatedSubmission });
+  } catch (error) {
+    console.error('Erreur lors de la suppression du feedback:', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du feedback.', error: error.message });
+  }
+};
+
 exports.getStudentProgress = async (req, res) => {
   try {
     const teacherId = req.user._id;
 
-    // Get all tests created by the teacher
     const tests = await Test.find({ teacherId })
       .populate('lessonId', 'title')
       .populate('programId', 'title niveauId')
       .lean();
 
-    // Get all submissions for these tests
     const testIds = tests.map((test) => test._id);
     const submissions = await TestSubmission.find({ testId: { $in: testIds } })
-      .populate('studentId', 'username prenom nom niveau classe')
+      .select('testId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
       .populate('testId', 'title')
       .lean();
 
-    // Get lessons created by the teacher
     const lessons = await Lesson.find({ teacherId })
       .populate('programId', 'title niveauId')
       .lean();
 
-    // Get progress for these lessons
     const lessonIds = lessons.map((lesson) => lesson._id);
-    const progress = await Progress.find({ lessonId: { $in: lessonIds } })
+    const progress = await mongoose.model('Progress').find({ lessonId: { $in: lessonIds } })
       .populate('studentId', 'username prenom nom niveau classe')
       .populate('lessonId', 'title')
       .lean();
 
-    // Get all students
     const students = await mongoose.model('User').find({ __t: 'Eleve' })
       .select('username prenom nom niveau classe')
       .lean();
 
-    // Aggregate data by student
     const studentProgress = students.map((student) => {
       const studentSubmissions = submissions.filter(
-        (sub) => sub.studentId._id.toString() === student._id.toString()
+        (sub) => sub.studentId?.toString() === student._id.toString()
       );
       const studentProgress = progress.filter(
         (prog) => prog.studentId._id.toString() === student._id.toString()
@@ -313,7 +382,7 @@ exports.getStudentProgress = async (req, res) => {
 
     res.status(200).json(studentProgress);
   } catch (error) {
-    console.error('Error fetching student progress:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des progrès des élèves.' });
+    console.error('Erreur lors de la récupération des progrès des élèves:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des progrès des élèves.', error: error.message });
   }
 };

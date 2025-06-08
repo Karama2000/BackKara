@@ -22,13 +22,11 @@ const fileFilter = (req, file, cb) => {
     'audio/mpeg',
     'audio/wav',
     'audio/ogg',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document  .document',
   ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Unsupported file type.'), false);
+    cb(new Error('Type de fichier non supporté.'), false);
   }
 };
 
@@ -38,12 +36,14 @@ const upload = multer({
   fileFilter,
 });
 
-// Routes
 router.get('/', protectRoute, testController.getAllTests);
 router.get('/submissions', protectRoute, testController.getTestSubmissions);
 router.post('/', protectRoute, upload.single('mediaFile'), testController.createTest);
 router.put('/:id', protectRoute, upload.single('mediaFile'), testController.updateTest);
 router.delete('/:id', protectRoute, testController.deleteTest);
 router.post('/:submissionId/feedback', protectRoute, upload.single('correctionFile'), testController.provideFeedback);
+router.put('/:submissionId/feedback', protectRoute, upload.single('correctionFile'), testController.updateFeedback);
+router.delete('/:submissionId/feedback', protectRoute, testController.deleteFeedback);
 router.get('/student-progress', protectRoute, testController.getStudentProgress);
+
 module.exports = router;

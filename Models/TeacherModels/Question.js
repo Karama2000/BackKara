@@ -11,6 +11,7 @@ const questionSchema = new mongoose.Schema({
   audioUrl: { type: String, default: null },
   quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', required: true },
   reponses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Reponse' }],
+  duration: { type: Number, default: 30 }, // Durée en secondes, par défaut 30s
 });
 
 module.exports = mongoose.model('Question', questionSchema);

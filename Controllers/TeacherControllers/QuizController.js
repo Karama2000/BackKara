@@ -6,7 +6,6 @@ const QuizSubmission = require('../../Models/StudentModels/QuizSubmission');
 const path = require('path');
 const fs = require('fs').promises;
 
-
 const handleFileUpload = async (file) => {
   if (!file) return null;
   return file.filename;
@@ -31,11 +30,10 @@ exports.createQuiz = async (req, res) => {
       return res.status(400).json({ message: 'Données manquantes' });
     }
 
-    // Create and save the Quiz first to get its _id
     const quiz = new Quiz({
       titre,
       difficulty,
-      questions: [], // Will be updated later
+      questions: [],
       createdBy: req.user._id,
     });
     await quiz.save();
@@ -47,10 +45,10 @@ exports.createQuiz = async (req, res) => {
           type: q.type,
           imageUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_image_${qIndex}`)),
           audioUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_audio_${qIndex}`)),
-          quizId: quiz._id, // Assign the quiz's _id
+          quizId: quiz._id,
+          duration: q.duration || 30, // Ajout de la durée, défaut 30 secondes
         });
 
-        // Save the question to get its _id
         await question.save();
 
         const savedResponses = await Promise.all(
@@ -61,7 +59,7 @@ exports.createQuiz = async (req, res) => {
               imageUrl: r.existingImage || await handleFileUpload(req.files.find(f => f.fieldname === `response_image_${qIndex}_${rIndex}`)),
               side: r.side,
               matchedResponseId: r.matchedResponseId,
-              questionId: question._id, // Assign the question's _id
+              questionId: question._id,
             });
             await responseInstance.save();
             return responseInstance._id;
@@ -69,12 +67,11 @@ exports.createQuiz = async (req, res) => {
         );
 
         question.reponses = savedResponses;
-        await question.save(); // Update question with response IDs
+        await question.save();
         return question._id;
       })
     );
 
-    // Update the quiz with the saved question IDs
     quiz.questions = savedQuestions;
     await quiz.save();
 
@@ -87,13 +84,13 @@ exports.createQuiz = async (req, res) => {
     res.status(201).json(populatedQuiz);
   } catch (error) {
     console.error('Erreur lors de la création du quiz:', error);
-    // If quiz was created but an error occurred, clean up
     if (quiz && quiz._id) {
       await Quiz.deleteOne({ _id: quiz._id });
     }
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
+
 
 exports.getAllQuizzes = async (req, res) => {
   try {
@@ -163,10 +160,11 @@ exports.updateQuiz = async (req, res) => {
           type: q.type,
           imageUrl: q.existingImage || await handleFileUpload(req.files.find(f => f.fieldname === `question_image_${qIndex}`)),
           audioUrl: q.existingAudio || await handleFileUpload(req.files.find(f => f.fieldname === `question_audio_${qIndex}`)),
-          quizId: quiz._id, // Assign the quiz's _id
+          quizId: quiz._id,
+          duration: q.duration || 30, // Ajout de la durée, défaut 30 secondes
         });
 
-        await question.save(); // Save question to get _id
+        await question.save();
 
         const savedResponses = await Promise.all(
           q.reponses.map(async (r, rIndex) => {
@@ -176,7 +174,7 @@ exports.updateQuiz = async (req, res) => {
               imageUrl: r.existingImage || await handleFileUpload(req.files.find(f => f.fieldname === `response_image_${qIndex}_${rIndex}`)),
               side: r.side,
               matchedResponseId: r.matchedResponseId,
-              questionId: question._id, // Assign the question's _id
+              questionId: question._id,
             });
             await responseInstance.save();
             return responseInstance._id;
@@ -184,7 +182,7 @@ exports.updateQuiz = async (req, res) => {
         );
 
         question.reponses = savedResponses;
-        await question.save(); // Update question with response IDs
+        await question.save();
         return question._id;
       })
     );
@@ -265,23 +263,18 @@ exports.submitQuiz = async (req, res) => {
     for (let i = 0; i < quiz.questions.length; i++) {
       const question = quiz.questions[i];
       const response = responses.find(r => r.questionId.toString() === question._id.toString());
-      if (!response) {
-        results.push({
-          questionId: question._id,
-          question: question.enonce,
-          isCorrect: false,
-          selectedAnswer: 'Aucune réponse fournie',
-        });
-        continue;
-      }
-
       let isCorrect = false;
       let selectedAnswer = '';
 
       if (question.type === 'multiple_choice' || question.type === 'true_false') {
         const correctResponse = question.reponses.find(r => r.estCorrecte);
-        isCorrect = response.selectedResponseIds.includes(correctResponse._id.toString());
-        selectedAnswer = question.reponses.find(r => response.selectedResponseIds.includes(r._id.toString()))?.texte || 'Aucune';
+        if (!response || !response.selectedResponseIds || response.selectedResponseIds.length === 0) {
+          isCorrect = false;
+          selectedAnswer = 'Aucune réponse fournie';
+        } else {
+          isCorrect = response.selectedResponseIds.includes(correctResponse._id.toString());
+          selectedAnswer = question.reponses.find(r => response.selectedResponseIds.includes(r._id.toString()))?.texte || 'Aucune';
+        }
       } else if (question.type === 'matching') {
         const correctPairs = [];
         for (let j = 0; j < question.reponses.length; j += 2) {
@@ -292,7 +285,7 @@ exports.submitQuiz = async (req, res) => {
           }
         }
 
-        const submittedPairs = response.matchingPairs || [];
+        const submittedPairs = response?.matchingPairs || [];
         isCorrect = submittedPairs.length === correctPairs.length &&
           submittedPairs.every(sp =>
             correctPairs.some(cp =>
@@ -305,6 +298,9 @@ exports.submitQuiz = async (req, res) => {
           const right = question.reponses.find(r => r._id.toString() === sp.rightId.toString());
           return `${left?.texte || 'N/A'} → ${right?.texte || 'N/A'}`;
         }).join(', ');
+        if (!response || !response.matchingPairs || response.matchingPairs.length === 0) {
+          selectedAnswer = 'Aucune correspondance fournie';
+        }
       }
 
       if (isCorrect) score++;
@@ -322,13 +318,13 @@ exports.submitQuiz = async (req, res) => {
     const submission = new QuizSubmission({
       quizId,
       userId: req.user._id,
-      studentId: req.user._id, // Set studentId to the authenticated user's ID
+      studentId: req.user._id,
       responses,
       results,
       score,
       total,
       percentage,
-      difficulty: quiz.difficulty, // Set difficulty from the quiz
+      difficulty: quiz.difficulty,
     });
     await submission.save();
 

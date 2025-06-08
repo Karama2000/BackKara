@@ -5,6 +5,7 @@ const quizController = require('../../Controllers/TeacherControllers/QuizControl
 const authMiddleware = require('../../MiddleWare/protectRoute');
 const multer = require('multer');
 const path = require('path');
+const Quiz = require('../../Models/TeacherModels/Quiz');
 
 // Multer storage configuration
 const storage = multer.diskStorage({
@@ -39,7 +40,7 @@ const upload = multer({
 });
 
 // Routes with multer for FormData
-router.post('/quizs', authMiddleware, upload.any(), quizController.createQuiz);
+router.post('/quizs', authMiddleware, quizController.createQuiz);
 router.put('/quizs/:id', authMiddleware, upload.any(), quizController.updateQuiz);
 
 // Routes without multer
