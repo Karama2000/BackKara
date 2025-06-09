@@ -566,12 +566,8 @@ exports.deleteUser = async (req, res) => {
 };
 exports.getPendingUsers = async (req, res) => {
   try {
-    // Récupérer les utilisateurs en attente dans toutes les collections
-    const pendingUsers = [];
-
-    // Récupérer les utilisateurs de la collection User (admins)
-    const admins = await User.find({ status: 'pending', role: 'admin' })
-      .select('nom prenom role email')
+    const users = await User.find({ status: 'pending' })
+      .select('-password')
       .populate('niveau', 'nom')
       .populate('classe', 'nom')
       .populate({
@@ -582,36 +578,7 @@ exports.getPendingUsers = async (req, res) => {
           { path: 'classe', select: 'nom' },
         ],
       });
-    pendingUsers.push(...admins);
-
-    // Récupérer les élèves de la collection Eleve
-    const eleves = await Eleve.find({ status: 'pending' })
-      .select('nom prenom role email numInscript')
-      .populate('niveau', 'nom')
-      .populate('classe', 'nom');
-    pendingUsers.push(...eleves);
-
-    // Récupérer les enseignants de la collection Enseignant
-    const enseignants = await Enseignant.find({ status: 'pending' })
-      .select('nom prenom role email matricule')
-      .populate('selectedNiveaux', 'nom')
-      .populate('selectedClasses', 'nom');
-    pendingUsers.push(...enseignants);
-
-    // Récupérer les parents de la collection Parent
-    const parents = await Parent.find({ status: 'pending' })
-      .select('nom prenom role email numTell')
-      .populate({
-        path: 'enfants',
-        select: 'nom prenom niveau classe',
-        populate: [
-          { path: 'niveau', select: 'nom' },
-          { path: 'classe', select: 'nom' },
-        ],
-      });
-    pendingUsers.push(...parents);
-
-    res.status(200).json(pendingUsers);
+    res.status(200).json(users);
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs en attente:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -625,23 +592,7 @@ exports.approveUser = async (req, res) => {
       return res.status(400).json({ message: 'ID invalide' });
     }
 
-    // Rechercher l'utilisateur dans toutes les collections
-    let user = await User.findById(id);
-    let collectionName = 'User';
-
-    if (!user) {
-      user = await Eleve.findById(id);
-      collectionName = 'Eleve';
-    }
-    if (!user) {
-      user = await Enseignant.findById(id);
-      collectionName = 'Enseignant';
-    }
-    if (!user) {
-      user = await Parent.findById(id);
-      collectionName = 'Parent';
-    }
-
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
@@ -675,23 +626,7 @@ exports.rejectUser = async (req, res) => {
       return res.status(400).json({ message: 'ID invalide' });
     }
 
-    // Rechercher l'utilisateur dans toutes les collections
-    let user = await User.findById(id);
-    let collectionName = 'User';
-
-    if (!user) {
-      user = await Eleve.findById(id);
-      collectionName = 'Eleve';
-    }
-    if (!user) {
-      user = await Enseignant.findById(id);
-      collectionName = 'Enseignant';
-    }
-    if (!user) {
-      user = await Parent.findById(id);
-      collectionName = 'Parent';
-    }
-
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
