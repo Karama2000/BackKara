@@ -80,9 +80,13 @@ exports.createGame = async (req, res) => {
   }
 };
 // Get all games (teacher only)
+// Get all games (teacher only)
 exports.getAllGames = async (req, res) => {
   try {
-    const games = await Game.find({}).populate('section', 'name');
+    if (!req.user || !req.user.userId) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    const games = await Game.find({ createdBy: req.user.userId }).populate('section');
     res.json(games);
   } catch (error) {
     console.error('Error fetching games:', error);

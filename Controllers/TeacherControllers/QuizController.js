@@ -22,6 +22,7 @@ const deleteFile = async (filename) => {
 };
 
 exports.createQuiz = async (req, res) => {
+  let quiz = null; // Initialiser quiz à null
   try {
     const { titre, difficulty, questions } = req.body;
     const parsedQuestions = typeof questions === 'string' ? JSON.parse(questions) : questions;
@@ -30,7 +31,7 @@ exports.createQuiz = async (req, res) => {
       return res.status(400).json({ message: 'Données manquantes' });
     }
 
-    const quiz = new Quiz({
+    quiz = new Quiz({
       titre,
       difficulty,
       questions: [],
@@ -46,7 +47,7 @@ exports.createQuiz = async (req, res) => {
           imageUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_image_${qIndex}`)),
           audioUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_audio_${qIndex}`)),
           quizId: quiz._id,
-          duration: q.duration || 30, // Ajout de la durée, défaut 30 secondes
+          duration: q.duration || 30,
         });
 
         await question.save();
