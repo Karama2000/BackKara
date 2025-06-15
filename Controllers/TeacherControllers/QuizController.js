@@ -22,7 +22,7 @@ const deleteFile = async (filename) => {
 };
 
 exports.createQuiz = async (req, res) => {
-  let quiz = null; // Initialiser quiz à null
+  let quiz = null;
   try {
     const { titre, difficulty, questions } = req.body;
     const parsedQuestions = typeof questions === 'string' ? JSON.parse(questions) : questions;
@@ -47,7 +47,6 @@ exports.createQuiz = async (req, res) => {
           imageUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_image_${qIndex}`)),
           audioUrl: await handleFileUpload(req.files.find(f => f.fieldname === `question_audio_${qIndex}`)),
           quizId: quiz._id,
-          duration: q.duration || 30,
         });
 
         await question.save();
@@ -91,7 +90,6 @@ exports.createQuiz = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
-
 
 exports.getAllQuizzes = async (req, res) => {
   try {
@@ -162,7 +160,6 @@ exports.updateQuiz = async (req, res) => {
           imageUrl: q.existingImage || await handleFileUpload(req.files.find(f => f.fieldname === `question_image_${qIndex}`)),
           audioUrl: q.existingAudio || await handleFileUpload(req.files.find(f => f.fieldname === `question_audio_${qIndex}`)),
           quizId: quiz._id,
-          duration: q.duration || 30, // Ajout de la durée, défaut 30 secondes
         });
 
         await question.save();
@@ -267,7 +264,26 @@ exports.submitQuiz = async (req, res) => {
       let isCorrect = false;
       let selectedAnswer = '';
 
-      if (question.type === 'multiple_choice' || question.type === 'true_false') {
+      if (question.type === 'multiple_choice') {
+        const correctResponses = question.reponses
+          .filter(r => r.estCorrecte)
+          .map(r => r._id.toString());
+        
+        if (!response || !response.selectedResponseIds || response.selectedResponseIds.length === 0) {
+          isCorrect = false;
+          selectedAnswer = 'Aucune réponse fournie';
+        } else {
+          const selectedIds = response.selectedResponseIds.map(id => id.toString());
+          isCorrect = correctResponses.length === selectedIds.length &&
+            correctResponses.every(id => selectedIds.includes(id)) &&
+            selectedIds.every(id => correctResponses.includes(id));
+          
+          selectedAnswer = question.reponses
+            .filter(r => response.selectedResponseIds.includes(r._id.toString()))
+            .map(r => r.texte)
+            .join(', ') || 'Aucune';
+        }
+      } else if (question.type === 'true_false') {
         const correctResponse = question.reponses.find(r => r.estCorrecte);
         if (!response || !response.selectedResponseIds || response.selectedResponseIds.length === 0) {
           isCorrect = false;

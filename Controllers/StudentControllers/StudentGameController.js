@@ -48,7 +48,6 @@ exports.saveScore = async (req, res) => {
 };
 
 // Get scores for a user (student access)
-// Get scores for a user (student access)
 exports.getUserScores = async (req, res) => {
   try {
     const { gameId } = req.query; // Ajouter la possibilité de filtrer par gameId
@@ -70,7 +69,7 @@ exports.getUserScores = async (req, res) => {
 // Save a game score (student only)
 exports.saveGameScore = async (req, res) => {
   const { gameId } = req.body || {};
-  const screenshot = req.file ? `/Uploads/${req.file.filename}` : null;
+  const screenshot = req.file ? `Uploads/${req.file.filename}` : null; // Remove leading slash
   try {
     console.log('saveGameScore - req.body:', req.body);
     console.log('saveGameScore - req.file:', req.file);
@@ -99,12 +98,11 @@ exports.saveGameScore = async (req, res) => {
     });
     await gameScore.save();
 
-    // Create notification with correct schema fields
     const notification = new Notification({
-      userId: game.createdBy._id, // Set userId to the game creator (teacher/parent)
+      userId: game.createdBy._id,
       type: 'game_score',
       message: `Nouvelle capture de score soumise pour le jeu ${game.name} par ${req.user.prenom} ${req.user.nom}`,
-      relatedId: gameScore._id, // Optionally link to the score
+      relatedId: gameScore._id,
       relatedModel: 'Score',
       read: false,
     });
@@ -117,4 +115,3 @@ exports.saveGameScore = async (req, res) => {
   }
 };
 
-// ... autres fonctions existantes ...

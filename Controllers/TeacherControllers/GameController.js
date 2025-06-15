@@ -54,7 +54,6 @@ exports.createGame = async (req, res) => {
   try {
     console.log('createGame - req.body:', req.body);
     console.log('createGame - req.file:', req.file);
-
     if (!name || !url || !section) {
       throw new Error('Les champs nom, URL et section sont requis');
     }
@@ -79,7 +78,7 @@ exports.createGame = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-// Get all games (teacher only)
+
 // Get all games (teacher only)
 exports.getAllGames = async (req, res) => {
   try {
@@ -94,19 +93,60 @@ exports.getAllGames = async (req, res) => {
   }
 };
 
+// Get games by section (student only)
+exports.getGamesBySection = async (req, res) => {
+  try {
+    if (!req.user || !req.user.userId) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.sectionId)) {
+      throw new Error('ID de section invalide');
+    }
+    const games = await Game.find({ section: req.params.sectionId }).populate('section');
+    res.json(games);
+  } catch (error) {
+    console.error('Error fetching games by section:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Get user scores (student only)
+exports.getUserScores = async (req, res) => {
+  try {
+    if (!req.user || !req.user.userId) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    const { gameId } = req.query;
+    if (gameId && !mongoose.Types.ObjectId.isValid(gameId)) {
+      throw new Error('ID de jeu invalide');
+    }
+    const query = { user: req.user.userId };
+    if (gameId) query.game = gameId;
+    const scores = await Score.find(query)
+      .populate('game', 'name')
+      .sort({ date: -1 });
+    res.json(scores);
+  } catch (error) {
+    console.error('Error fetching user scores:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // Get scores for a game (teacher only)
 exports.getGameScores = async (req, res) => {
   try {
     const scores = await Score.find({ game: req.params.gameId })
-      .populate('user', 'prenom nom') // Inclure prénom et nom
+      .populate('user', 'prenom nom')
       .populate('game', 'name')
-      .sort({ date: -1 }); // Trier par date décroissante
+      .sort({ date: -1 });
     res.json(scores);
   } catch (error) {
     console.error('Error fetching game scores:', error);
     res.status(400).json({ error: error.message });
   }
 };
+
+// Mark score reviewed (teacher only)
 exports.markScoreReviewed = async (req, res) => {
   try {
     const score = await Score.findById(req.params.scoreId);
@@ -124,6 +164,42 @@ exports.markScoreReviewed = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Create a score (student only)
+exports.createScore = async (req, res) => {
+  const { gameId } = req.body;
+  const screenshot = req.file ? `Uploads/${req.file.filename}` : null; // Remove leading slash
+  try {
+    console.log('createScore - req.body:', req.body);
+    console.log('createScore - req.file:', req.file);
+    if (!gameId || !screenshot) {
+      throw new Error('Game ID et capture d’écran sont requis');
+    }
+    if (!req.user || !req.user.userId) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    if (!mongoose.Types.ObjectId.isValid(gameId)) {
+      throw new Error('ID de jeu invalide');
+    }
+    const game = await Game.findById(gameId);
+    if (!game) {
+      throw new Error('Jeu non trouvé');
+    }
+    const score = new Score({
+      game: gameId,
+      user: req.user.userId,
+      screenshot,
+      reviewed: false,
+      date: new Date(),
+    });
+    await score.save();
+    res.status(201).json({ message: 'Score soumis avec succès', score });
+  } catch (error) {
+    console.error('Error creating score:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // Update a section (teacher only)
 exports.updateSection = async (req, res) => {
   const { name } = req.body;
@@ -141,9 +217,8 @@ exports.updateSection = async (req, res) => {
     }
     section.name = name || section.name;
     if (image) {
-      // Supprimer l'ancienne image si elle existe
       if (section.image) {
-        const oldImagePath = path.join(__dirname, '../../', section.image);
+        const oldImagePath = path.join(__dirname, '../../', section.image.replace(/^\/+/, ''));
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
         }
@@ -157,6 +232,7 @@ exports.updateSection = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 // Delete a section (teacher only)
 exports.deleteSection = async (req, res) => {
   try {
@@ -170,11 +246,9 @@ exports.deleteSection = async (req, res) => {
     if (section.createdBy.toString() !== req.user.userId) {
       throw new Error('Non autorisé à supprimer cette section');
     }
-    // Supprimer les jeux associés
     await Game.deleteMany({ section: section._id });
-    // Supprimer l'image de la section si elle existe
     if (section.image) {
-      const imagePath = path.join(__dirname, '../../', section.image);
+      const imagePath = path.join(__dirname, '../../', section.image.replace(/^\/+/, ''));
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
@@ -186,6 +260,7 @@ exports.deleteSection = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 // Update a game (teacher only)
 exports.updateGame = async (req, res) => {
   const { name, url, section } = req.body;
@@ -205,9 +280,8 @@ exports.updateGame = async (req, res) => {
     game.url = url || game.url;
     game.section = section || game.section;
     if (image) {
-      // Supprimer l'ancienne image si elle existe
       if (game.image) {
-        const oldImagePath = path.join(__dirname, '../../', game.image);
+        const oldImagePath = path.join(__dirname, '../../', game.image.replace(/^\/+/, ''));
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
         }
@@ -221,6 +295,7 @@ exports.updateGame = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 // Delete a game (teacher only)
 exports.deleteGame = async (req, res) => {
   try {
@@ -234,11 +309,9 @@ exports.deleteGame = async (req, res) => {
     if (game.createdBy.toString() !== req.user.userId) {
       throw new Error('Non autorisé à supprimer ce jeu');
     }
-    // Supprimer les scores associés
     await Score.deleteMany({ game: game._id });
-    // Supprimer l'image du jeu si elle existe
     if (game.image) {
-      const imagePath = path.join(__dirname, '../../', game.image);
+      const imagePath = path.join(__dirname, '../../', game.image.replace(/^\/+/, ''));
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }

@@ -1,4 +1,3 @@
-// Routes/TeacherRoutes/QuizRoute.js
 const express = require('express');
 const router = express.Router();
 const quizController = require('../../Controllers/TeacherControllers/QuizController');
@@ -40,7 +39,7 @@ const upload = multer({
 });
 
 // Routes with multer for FormData
-router.post('/quizs', authMiddleware, quizController.createQuiz);
+router.post('/quizs', authMiddleware, upload.any(), quizController.createQuiz);
 router.put('/quizs/:id', authMiddleware, upload.any(), quizController.updateQuiz);
 
 // Routes without multer

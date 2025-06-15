@@ -2,7 +2,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Configure storage for uploaded files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../Uploads');
@@ -16,12 +15,12 @@ const storage = multer.diskStorage({
   },
 });
 
-// File type validation
 const fileFilter = (req, file, cb) => {
   const allowedTypes = {
     'image/jpeg': '.jpeg',
     'image/jpg': '.jpg',
     'image/png': '.png',
+    'image/webp': '.webp',
     'audio/mpeg': '.mp3',
     'audio/wav': '.wav',
     'audio/ogg': '.ogg',
@@ -36,32 +35,39 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new Error(
-        'Type de fichier non supporté. Seuls JPEG, PNG, PDF, MP3, WAV, OGG, WEBM, DOC, DOCX sont autorisés.'
+        'Type de fichier non supporté. Seuls JPEG, PNG, WEBP, PDF, MP3, WAV, OGG, WEBM, DOC, DOCX sont autorisés.'
       ),
       false
     );
   }
 };
 
-// Multer configuration
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB per file
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
 }).fields([
+  { name: 'mediaFile', maxCount: 1 },
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 },
   { name: 'file', maxCount: 1 },
-  { name: 'imageUrl', maxCount: 1 }, // Added to support frontend's field name
+  { name: 'imageUrl', maxCount: 1 },
 ]);
 
-// Error handling middleware
 const handleUpload = (req, res, next) => {
+  console.log('Requête multipart reçue:', {
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+  });
   upload(req, res, (err) => {
-    console.log('Fichiers reçus:', req.files); // Debug log
+    console.log('Résultat du parsing Multer:', {
+      files: req.files,
+      body: req.body,
+      error: err ? err.message : null,
+    });
     if (err) {
+      console.error('Erreur Multer:', err);
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(413).json({ error: 'Fichier trop volumineux (max 10MB)' });
       }

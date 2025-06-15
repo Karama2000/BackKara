@@ -4,6 +4,9 @@ const TestSubmission = require('../../Models/StudentModels/TestSubmission');
 const Notification = require('../../Models/SystemeNotif/Notification');
 const Lesson = require('../../Models/TeacherModels/Lesson');
 
+// Base URL pour les fichiers
+const BASE_URL = 'http://localhost:5000/Uploads/';
+
 exports.getAllTests = async (req, res) => {
   try {
     const { lessonId } = req.query;
@@ -16,7 +19,12 @@ exports.getAllTests = async (req, res) => {
       .populate('programId', 'title niveauId')
       .populate('unitId', 'title')
       .lean();
-    res.status(200).json(tests);
+    // Ajouter l'URL absolue pour mediaFile
+    const testsWithUrls = tests.map(test => ({
+      ...test,
+      mediaFile: test.mediaFile ? `${BASE_URL}${test.mediaFile}` : null,
+    }));
+    res.status(200).json(testsWithUrls);
   } catch (error) {
     console.error('Erreur lors de la récupération des tests:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des tests.', error: error.message });
@@ -57,6 +65,9 @@ exports.createTest = async (req, res) => {
       .populate('programId', 'title niveauId')
       .populate('unitId', 'title')
       .lean();
+
+    // Ajouter l'URL absolue pour mediaFile
+    populatedTest.mediaFile = populatedTest.mediaFile ? `${BASE_URL}${populatedTest.mediaFile}` : null;
 
     // Notifier les élèves du niveau
     const program = await mongoose.model('Program').findById(programId);
@@ -131,6 +142,9 @@ exports.updateTest = async (req, res) => {
       .populate('unitId', 'title')
       .lean();
 
+    // Ajouter l'URL absolue pour mediaFile
+    populatedTest.mediaFile = populatedTest.mediaFile ? `${BASE_URL}${populatedTest.mediaFile}` : null;
+
     res.status(200).json(populatedTest);
   } catch (error) {
     console.error('Erreur lors de la mise à jour du test:', error);
@@ -183,7 +197,14 @@ exports.getTestSubmissions = async (req, res) => {
       .populate('testId', 'title')
       .lean();
 
-    res.status(200).json(submissions);
+    // Ajouter les URLs absolues pour submittedFile et correctionFile
+    const submissionsWithUrls = submissions.map(sub => ({
+      ...sub,
+      submittedFile: sub.submittedFile ? `${BASE_URL}${sub.submittedFile}` : null,
+      correctionFile: sub.correctionFile ? `${BASE_URL}${sub.correctionFile}` : null,
+    }));
+
+    res.status(200).json(submissionsWithUrls);
   } catch (error) {
     console.error('Erreur lors de la récupération des soumissions:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des soumissions.', error: error.message });
@@ -234,6 +255,10 @@ exports.provideFeedback = async (req, res) => {
       .populate('testId', 'title')
       .lean();
 
+    // Ajouter les URLs absolues
+    populatedSubmission.submittedFile = populatedSubmission.submittedFile ? `${BASE_URL}${populatedSubmission.submittedFile}` : null;
+    populatedSubmission.correctionFile = populatedSubmission.correctionFile ? `${BASE_URL}${populatedSubmission.correctionFile}` : null;
+
     res.status(200).json(populatedSubmission);
   } catch (error) {
     console.error('Erreur lors de la soumission du feedback:', error);
@@ -274,6 +299,10 @@ exports.updateFeedback = async (req, res) => {
       .populate('testId', 'title')
       .lean();
 
+    // Ajouter les URLs absolues
+    populatedSubmission.submittedFile = populatedSubmission.submittedFile ? `${BASE_URL}${populatedSubmission.submittedFile}` : null;
+    populatedSubmission.correctionFile = populatedSubmission.correctionFile ? `${BASE_URL}${populatedSubmission.correctionFile}` : null;
+
     res.status(200).json(populatedSubmission);
   } catch (error) {
     console.error('Erreur lors de la mise à jour du feedback:', error);
@@ -310,6 +339,10 @@ exports.deleteFeedback = async (req, res) => {
       .populate('testId', 'title')
       .lean();
 
+    // Ajouter les URLs absolues
+    populatedSubmission.submittedFile = populatedSubmission.submittedFile ? `${BASE_URL}${populatedSubmission.submittedFile}` : null;
+    populatedSubmission.correctionFile = populatedSubmission.correctionFile ? `${BASE_URL}${populatedSubmission.correctionFile}` : null;
+
     res.status(200).json({ message: 'Feedback supprimé avec succès.', submission: populatedSubmission });
   } catch (error) {
     console.error('Erreur lors de la suppression du feedback:', error);
@@ -321,7 +354,6 @@ exports.getStudentProgress = async (req, res) => {
   try {
     const teacherId = req.user._id;
 
-    // Récupérer les tests créés par l'enseignant
     const tests = await Test.find({ teacherId })
       .populate('lessonId', 'title')
       .populate('programId', 'title niveauId')
@@ -329,31 +361,26 @@ exports.getStudentProgress = async (req, res) => {
 
     const testIds = tests.map((test) => test._id);
 
-    // Récupérer toutes les soumissions pour ces tests, incluant studentId
     const submissions = await TestSubmission.find({ testId: { $in: testIds } })
       .select('testId studentId anonymousId submittedFile status feedback correctionFile submittedAt correctedAt')
       .populate('testId', 'title')
       .lean();
 
-    // Récupérer les leçons créées par l'enseignant
     const lessons = await Lesson.find({ teacherId })
       .populate('programId', 'title niveauId')
       .lean();
 
     const lessonIds = lessons.map((lesson) => lesson._id);
 
-    // Récupérer les progrès des leçons
     const progress = await mongoose.model('Progress').find({ lessonId: { $in: lessonIds } })
       .populate('studentId', 'username prenom nom niveau classe')
       .populate('lessonId', 'title')
       .lean();
 
-    // Récupérer tous les étudiants
     const students = await mongoose.model('User').find({ __t: 'Eleve' })
       .select('username prenom nom niveau classe')
       .lean();
 
-    // Construire la réponse en associant les données
     const studentProgress = students.map((student) => {
       const studentSubmissions = submissions.filter(
         (sub) => sub.studentId && sub.studentId.toString() === student._id.toString()
@@ -376,7 +403,7 @@ exports.getStudentProgress = async (req, res) => {
           status: sub.status,
           submittedAt: sub.submittedAt,
           feedback: sub.feedback || null,
-          correctionFile: sub.correctionFile || null,
+          correctionFile: sub.correctionFile ? `${BASE_URL}${sub.correctionFile}` : null,
         })),
         lessons: studentProgress.map((prog) => ({
           lessonId: prog.lessonId._id,
@@ -389,7 +416,6 @@ exports.getStudentProgress = async (req, res) => {
       };
     });
 
-    // Filtrer pour ne renvoyer que les étudiants avec des tests ou des leçons
     const filteredStudentProgress = studentProgress.filter(
       (sp) => sp.tests.length > 0 || sp.lessons.length > 0
     );

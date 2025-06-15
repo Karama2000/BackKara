@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { v4: uuidv4 } = require('uuid'); // Import UUID for generating anonymousId
+const { v4: uuidv4 } = require('uuid');
 const Test = require('../../Models/TeacherModels/Test');
 const TestSubmission = require('../../Models/StudentModels/TestSubmission');
 const Parent = require('../../Models/AdminModels/Parent');
@@ -105,7 +105,7 @@ exports.submitTest = async (req, res) => {
     const submission = new TestSubmission({
       testId,
       studentId: student._id,
-      anonymousId: uuidv4(), // Generate unique anonymousId
+      anonymousId: uuidv4(),
       submittedFile,
       status: 'submitted',
       submittedAt: new Date(),
@@ -201,7 +201,7 @@ exports.updateSubmission = async (req, res) => {
 
     // Delete old file if it exists
     if (submission.submittedFile) {
-      const oldFilePath = path.join(__dirname, '../../Uploads', submission.submittedFile);
+      const oldFilePath = path.join(process.cwd(), 'Uploads', submission.submittedFile);
       try {
         await fs.unlink(oldFilePath);
         console.log('Old file deleted:', submission.submittedFile);
@@ -287,7 +287,7 @@ exports.deleteSubmission = async (req, res) => {
 
     // Delete file if it exists
     if (submission.submittedFile) {
-      const filePath = path.join(__dirname, '../../Uploads', submission.submittedFile);
+      const filePath = path.join(process.cwd(), 'Uploads', submission.submittedFile);
       try {
         await fs.unlink(filePath);
         console.log('File deleted:', submission.submittedFile);

@@ -7,7 +7,7 @@ const Admin = require('../../Models/AdminModels/Admin');
 const Classe = require('../../Models/AdminModels/Classe');
 const path = require('path');
 const sendEmail = require('../../Utils/SendEmail');
-
+const fs = require('fs'); // Ajout de l'importation
 // Middleware multer pour gérer les fichiers multipart (assurez-vous qu'il est configuré dans votre app.js)
 const multer = require('multer');
 const upload = multer({ dest: 'Uploads/' });
@@ -127,7 +127,6 @@ exports.createUser = async (req, res) => {
     const usersData = Array.isArray(req.body) ? req.body : [req.body];
     const createdUsers = [];
     const errors = [];
-    const baseUrl = `${req.protocol}://${req.get('host')}/Uploads`; // e.g., http://localhost:5000/Uploads
 
     for (const userData of usersData) {
       const { nom, prenom, email, password, role, niveaux, classes, numTell, numInscript, matricule, specialite, enfants, niveau, classe } = userData;
@@ -135,9 +134,12 @@ exports.createUser = async (req, res) => {
 
       try {
         let imageUrl = null;
-        if (req.files && req.files.imageUrl && req.files.imageUrl[0]) {
-          imageUrl = `${baseUrl}/${req.files.imageUrl[0].filename}`; // Store full URL
+        if (req.files && req.files.mediaFile && req.files.mediaFile[0]) {
+          imageUrl = req.files.mediaFile[0].filename; // Store only filename
           console.log('Fichier image reçu:', imageUrl);
+        } else if (req.files && req.files.imageUrl && req.files.imageUrl[0]) {
+          imageUrl = req.files.imageUrl[0].filename; // Fallback for compatibility
+          console.log('Fichier imageUrl reçu:', imageUrl);
         } else {
           console.log('Aucun fichier image détecté');
         }
@@ -200,7 +202,7 @@ exports.createUser = async (req, res) => {
             const existingClasses = await Classe.find({ _id: { $in: classes } }).populate('enseignants');
             const conflictingClasses = existingClasses.filter(classe => classe.enseignants && classe.enseignants.length > 0);
             if (conflictingClasses.length > 0) {
-              const conflictingClassNames = conflictingClasses.map(classe => classe.nom).join(', ');
+              const conflictingClassNames = existingClasses.map(classe => classe.nom).join(', ');
               errors.push({
                 userData,
                 message: `Les classes suivantes sont déjà associées à un autre enseignant : ${conflictingClassNames}`,
@@ -303,6 +305,8 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('Requête reçue pour updateUser:', { id, body: req.body, files: req.files });
+
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'ID invalide' });
     }
@@ -321,11 +325,26 @@ exports.updateUser = async (req, res) => {
       delete updateData.password;
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}/Uploads`; // e.g., http://localhost:5000/Uploads
-    if (req.files && req.files.imageUrl && req.files.imageUrl[0]) {
-      updateData.imageUrl = `${baseUrl}/${req.files.imageUrl[0].filename}`; // Store full URL
-      console.log('Nouvelle image uploadée:', updateData.imageUrl);
+    if (req.files && req.files.mediaFile && req.files.mediaFile[0]) {
+      if (user.imageUrl) {
+        const oldImagePath = path.join(__dirname, '../Uploads', user.imageUrl);
+        fs.unlink(oldImagePath, (err) => {
+          if (err) console.warn('Erreur lors de la suppression de l\'ancienne image:', err);
+        });
+      }
+      updateData.imageUrl = req.files.mediaFile[0].filename;
+      console.log('Nouvelle image uploadée (mediaFile):', updateData.imageUrl);
+    } else if (req.files && req.files.imageUrl && req.files.imageUrl[0]) {
+      if (user.imageUrl) {
+        const oldImagePath = path.join(__dirname, '../Uploads', user.imageUrl);
+        fs.unlink(oldImagePath, (err) => {
+          if (err) console.warn('Erreur lors de la suppression de l\'ancienne image:', err);
+        });
+      }
+      updateData.imageUrl = req.files.imageUrl[0].filename;
+      console.log('Nouvelle image uploadée (imageUrl):', updateData.imageUrl);
     } else {
+      console.log('Aucun fichier image reçu');
       delete updateData.imageUrl;
     }
 
@@ -349,6 +368,7 @@ exports.updateUser = async (req, res) => {
     const fieldsToKeep = [...allowedFields, ...(roleSpecificFields[user.role] || [])];
     Object.keys(updateData).forEach((key) => {
       if (!fieldsToKeep.includes(key)) {
+        console.log(`Champ ignoré: ${key}`);
         delete updateData[key];
       }
     });
@@ -367,7 +387,7 @@ exports.updateUser = async (req, res) => {
         : [];
       const invalidNiveauIds = niveauxArray.filter((id) => !mongoose.Types.ObjectId.isValid(id));
       if (invalidNiveauIds.length > 0) {
-        return res.status(400).json({ message: 'Certains IDs de niveaux sont invalides' });
+        return res.status(400).json({ message: `IDs de niveaux invalides: ${invalidNiveauIds.join(', ')}` });
       }
       updateData.niveaux = niveauxArray;
     }
@@ -379,7 +399,7 @@ exports.updateUser = async (req, res) => {
         : [];
       const invalidClassIds = classesArray.filter((id) => !mongoose.Types.ObjectId.isValid(id));
       if (invalidClassIds.length > 0) {
-        return res.status(400).json({ message: 'Certains IDs de classes sont invalides' });
+        return res.status(400).json({ message: `IDs de classes invalides: ${invalidClassIds.join(', ')}` });
       }
       updateData.classes = classesArray;
     }
@@ -393,20 +413,22 @@ exports.updateUser = async (req, res) => {
       const eleveIds = enfantsArray
         .map((item) => (typeof item === 'object' && item.eleveId ? item.eleveId : item))
         .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
-      if (eleveIds.length === 0) {
+      if (eleveIds.length === 0 && updateData.enfants.length > 0) {
         return res.status(400).json({ message: 'Aucun ID d\'élève valide fourni' });
       }
 
-      const existingEleves = await Eleve.find({ _id: { $in: eleveIds } });
-      if (existingEleves.length !== eleveIds.length) {
-        const missingIds = eleveIds.filter((id) => !existingEleves.some((e) => e._id.toString() === id));
-        return res.status(404).json({ message: `Certains élèves spécifiés n'ont pas été trouvés : ${missingIds.join(', ')}` });
+      if (eleveIds.length > 0) {
+        const existingEleves = await Eleve.find({ _id: { $in: eleveIds } });
+        if (existingEleves.length !== eleveIds.length) {
+          const missingIds = eleveIds.filter((id) => !existingEleves.some((e) => e._id.toString() === id));
+          return res.status(404).json({ message: `Élèves non trouvés: ${missingIds.join(', ')}` });
+        }
+        updateData.enfants = eleveIds;
+      } else {
+        updateData.enfants = [];
       }
-
-      updateData.enfants = eleveIds;
     }
 
-    let updatedUser;
     if (user.role === 'eleve' && 'classe' in updateData) {
       const currentEleve = await Eleve.findById(id);
       const oldClasseId = currentEleve.classe ? currentEleve.classe.toString() : null;
@@ -426,16 +448,10 @@ exports.updateUser = async (req, res) => {
 
       if (oldClasseId !== newClasseId) {
         if (oldClasseId) {
-          await Classe.updateOne(
-            { _id: oldClasseId },
-            { $pull: { eleves: id } }
-          );
+          await Classe.updateOne({ _id: oldClasseId }, { $pull: { eleves: id } });
         }
         if (newClasseId) {
-          await Classe.updateOne(
-            { _id: newClasseId },
-            { $addToSet: { eleves: id } }
-          );
+          await Classe.updateOne({ _id: newClasseId }, { $addToSet: { eleves: id } });
         }
       }
     }
@@ -453,7 +469,7 @@ exports.updateUser = async (req, res) => {
         if (conflictingClasses.length > 0) {
           const conflictingClassNames = conflictingClasses.map((classe) => classe.nom).join(', ');
           return res.status(400).json({
-            message: `Les classes suivantes sont déjà associées à un autre enseignant : ${conflictingClassNames}`,
+            message: `Classes déjà associées à un autre enseignant: ${conflictingClassNames}`,
           });
         }
       }
@@ -466,19 +482,14 @@ exports.updateUser = async (req, res) => {
       const classesToRemove = oldClasses.filter((c) => !newClasses.includes(c));
 
       if (classesToAdd.length > 0) {
-        await Classe.updateMany(
-          { _id: { $in: classesToAdd } },
-          { $addToSet: { enseignants: id } }
-        );
+        await Classe.updateMany({ _id: { $in: classesToAdd } }, { $addToSet: { enseignants: id } });
       }
       if (classesToRemove.length > 0) {
-        await Classe.updateMany(
-          { _id: { $in: classesToRemove } },
-          { $pull: { enseignants: id } }
-        );
+        await Classe.updateMany({ _id: { $in: classesToRemove } }, { $pull: { enseignants: id } });
       }
     }
 
+    let updatedUser;
     if (user.role === 'parent') {
       updatedUser = await Parent.findByIdAndUpdate(id, updateData, { new: true })
         .select('-password')
@@ -508,10 +519,11 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: 'Utilisateur non trouvé après mise à jour' });
     }
 
+    console.log('Utilisateur mis à jour:', updatedUser);
     return res.status(200).json(updatedUser);
   } catch (error) {
     console.error('Erreur lors de la mise à jour de l\'utilisateur:', error.message, error.stack);
-    return res.status(500).json({ message: 'Erreur lors de la modification de l\'utilisateur', error: error.message });
+    return res.status(500).json({ message: 'Erreur serveur lors de la modification', error: error.message });
   }
 };
 // Supprimer un utilisateur
